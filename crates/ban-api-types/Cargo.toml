@@ -1,0 +1,10 @@
+[package]
+name = "ban-api-types"
+# This crate's version IS the AGENT_API_VERSION (independent of OS_VERSION).
+version = "0.1.0"
+description = "Shared API contract between Ban Agent and Ban Center"
+edition.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]

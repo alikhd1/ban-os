@@ -1,0 +1,13 @@
+[package]
+name = "ban-event"
+version = "0.1.0"
+description = "Ban Event: event and audit recording service of Ban OS"
+edition.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[package.metadata.deb]
+revision = ""
+assets = [["target/release/ban-event", "opt/ban/event/", "755"]]
