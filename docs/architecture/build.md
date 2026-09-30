@@ -60,30 +60,42 @@ apt-cacher-ng is a cache, not a mirror:
 ## 4. Build
 
 ```bash
-make build PROFILE=development
+make build PROFILE=development VARIANT=pos
 ```
 
-`PROFILE` is `development` (default), `staging` or `production`; see `config/README.md`.
-The target runs `image/scripts/build-image.sh`: `lb clean` -> stage package lists from
-`image/packages/` and `config/<profile>/package-lists/` -> `lb config` -> `lb build` (with sudo).
+Two independent choices:
 
-Output: `out/ban-os-<version>-<profile>-amd64.iso`; `<version>` comes from the `VERSION` file.
-The full log is `image/live-build/build.log`.
+- `PROFILE` is `development` (default), `staging` or `production`: how the image is locked
+  down; see `config/README.md`.
+- `VARIANT` is `pos` (default) or `server`: what the image is (graphical POS terminal or
+  headless store server); see `image/variants/README.md`.
+
+The target runs `image/scripts/build-image.sh <profile> <variant>`: `lb clean` -> stage package
+lists from `image/packages/`, `image/variants/<variant>/package-lists/` and
+`config/<profile>/package-lists/` (a name clash between them stops the build) -> `lb config` ->
+`lb build` (with sudo).
+
+Output: `out/ban-os-<version>-<profile>-<variant>-amd64.iso`; `<version>` comes from the
+`VERSION` file. The full log is `image/live-build/build.log`. The two variants share the
+live-build working directory, so build them one after the other, not in parallel.
 
 Other targets:
 
 | Target | What it does |
 | --- | --- |
 | `make debs` | builds the Ban `.deb` packages into `out/debs/` (currently `ban-agent`, `ban-event`) |
-| `make run-vm` | boots the ISO in QEMU + OVMF with a 32 GB virtual disk (`out/disk.qcow2`) and a 1024x768 screen |
+| `make run-vm` | boots the ISO in QEMU + OVMF with a 32 GB virtual disk (`out/disk-<variant>.qcow2`) and a 1024x768 screen |
 | `make test-boot` | headless boot; waits 120 s for `BAN-BOOT-OK <version>` on the serial port |
 | `make clean` | `lb clean --purge`: removes the chroot and the live-build cache (keeps `out/`) |
 
 ## 5. Boot the image
 
 ```bash
-make run-vm
+make run-vm                    # pos
+make run-vm VARIANT=server     # server
 ```
+
+`run-vm` and `test-boot` take the same `PROFILE` and `VARIANT` as `build` to find the ISO.
 
 Over SSH there is no display; either use X forwarding or a VNC display:
 
@@ -93,7 +105,9 @@ make run-vm QEMU_EXTRA="-display vnc=:1"
 
 then connect a VNC client to `<vm>:5901`. The serial console is on the terminal.
 
-In Stage 0 the image is a bare Debian live system: it boots to a login prompt and nothing more.
+In Stage 0 both variants are the same bare Debian live system: they boot to a login prompt and
+nothing more. They start to differ in Stage 1 (package lists) and Stage 2 (the `pos` graphical
+session; the `server` variant stays on `multi-user.target`).
 `make test-boot` times out until Stage 1 adds `ban-boot-ok.service`.
 
 ## Troubleshooting

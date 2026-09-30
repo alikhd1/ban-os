@@ -19,7 +19,8 @@ image/live-build/config/bootstrap
 image/live-build/config/chroot
 image/live-build/config/common
 image/live-build/config/source
-# Staged by image/scripts/build-image.sh from image/packages/ and config/<profile>/
+# Staged by image/scripts/build-image.sh from image/packages/, image/variants/<variant>/
+# and config/<profile>/
 image/live-build/config/package-lists/
 
 # Editors / OS

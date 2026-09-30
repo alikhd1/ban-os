@@ -2,6 +2,11 @@
 
 The three image profiles (plan part 1, step 0.6). Select one with `make build PROFILE=<profile>`.
 
+A profile says how an image is locked down; the variant (`pos` or `server`, plan part 1,
+step 0.8, [image/variants/](../image/variants/README.md)) says what the image is. The two are
+independent: `make build PROFILE=<profile> VARIANT=<variant>`, six combinations. The
+settings below apply to both variants.
+
 | Profile | SSH | `maintenance` sudo | Ban Center devtools | Update channel | Log level | Default PIN | root |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `development` | on | full | yes | `dev` | DEBUG (*) | allowed | locked (*) |
@@ -13,7 +18,8 @@ The three image profiles (plan part 1, step 0.6). Select one with `make build PR
 Each profile folder holds:
 
 - `profile.env`: build variables, sourced by `image/scripts/build-image.sh`.
-- `package-lists/*.list.chroot` (optional): package lists added on top of `image/packages/`.
+- `package-lists/*.list.chroot` (optional): package lists added on top of `image/packages/`
+  and the variant's lists.
 - override files (optional, from Stage 1): files that replace those in `image/configuration/`.
 
 Rules: no secrets in any profile. No default PIN, password or key in `staging` and `production`;

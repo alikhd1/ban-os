@@ -5,6 +5,7 @@ members = [
     "event/ban-event",
     "crates/ban-api-types",
     # "center/ban-center/src-tauri",   # enabled in Stage 5 (BC-01)
+    # "console/ban-console",           # enabled in Stage 5 (server variant, step 5.10)
 ]
 
 # Shared metadata only. Versions are NOT shared: each component is versioned

@@ -6,10 +6,14 @@ SHELL := /bin/bash
 
 VERSION := $(shell tr -d '[:space:]' < VERSION)
 PROFILE ?= development
+# pos = graphical kiosk with Adad; server = headless (PostgreSQL + Ban services).
+VARIANT ?= pos
 
 OUT  := out
-ISO  ?= $(OUT)/ban-os-$(VERSION)-$(PROFILE)-amd64.iso
-DISK ?= $(OUT)/disk.qcow2
+ISO  ?= $(OUT)/ban-os-$(VERSION)-$(PROFILE)-$(VARIANT)-amd64.iso
+# One virtual disk per variant, so an installed pos system and an installed
+# server system never share a disk.
+DISK ?= $(OUT)/disk-$(VARIANT).qcow2
 
 # Rust crates that ship as .deb. center, launcher, hardware and updater join
 # this target in their own stages.
@@ -28,7 +32,9 @@ SUDO := $(if $(filter 0,$(shell id -u)),,sudo)
 
 help:
 	@echo "make debs                      build all Ban .deb packages into $(OUT)/debs/"
-	@echo "make build PROFILE=<profile>   build the ISO (development|staging|production)"
+	@echo "make build PROFILE=<profile> VARIANT=<variant>"
+	@echo "                               build the ISO; profile: development|staging|production,"
+	@echo "                               variant: pos (default) | server"
 	@echo "make run-vm                    boot the ISO in QEMU + OVMF (32GB disk, 1024x768)"
 	@echo "make test-boot                 headless boot, wait for BAN-BOOT-OK on serial"
 	@echo "make clean                     remove the live-build chroot and cache"
@@ -40,7 +46,7 @@ debs:
 	done
 
 build:
-	image/scripts/build-image.sh $(PROFILE)
+	image/scripts/build-image.sh $(PROFILE) $(VARIANT)
 
 $(DISK):
 	mkdir -p $(OUT)
@@ -49,7 +55,7 @@ $(DISK):
 # "-vga none -device virtio-vga,xres=..,yres=.." is "-vga virtio" with the
 # 1024x768 POS screen size.
 run-vm: $(DISK)
-	@test -f "$(ISO)" || { echo "$(ISO) not found; run: make build PROFILE=$(PROFILE)" >&2; exit 1; }
+	@test -f "$(ISO)" || { echo "$(ISO) not found; run: make build PROFILE=$(PROFILE) VARIANT=$(VARIANT)" >&2; exit 1; }
 	@test -n "$(OVMF_CODE)" || { echo "OVMF firmware not found; install the ovmf package" >&2; exit 1; }
 	qemu-system-x86_64 $(KVM) -m 4096 -smp 2 \
 		-bios $(OVMF_CODE) \
@@ -60,7 +66,7 @@ run-vm: $(DISK)
 		$(QEMU_EXTRA)
 
 test-boot:
-	@test -f "$(ISO)" || { echo "$(ISO) not found; run: make build PROFILE=$(PROFILE)" >&2; exit 1; }
+	@test -f "$(ISO)" || { echo "$(ISO) not found; run: make build PROFILE=$(PROFILE) VARIANT=$(VARIANT)" >&2; exit 1; }
 	@test -n "$(OVMF_CODE)" || { echo "OVMF firmware not found; install the ovmf package" >&2; exit 1; }
 	tests/boot/test-boot.sh $(ISO) $(OVMF_CODE)
 

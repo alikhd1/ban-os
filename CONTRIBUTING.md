@@ -16,6 +16,10 @@ Two prefixes only:
   `ban-update`, `ban-hardware` (also `ban-center`, `ban-metrics`, `ban-session`, ...).
 - `adad-*` / `adad`: everything that belongs to the POS application: `adad`, `adad-launcher`.
 
+The image variants are `pos` and `server` (plan part 1, step 0.8). Both share `OS_VERSION`
+and are always released together; a component that exists in only one variant says so in its
+folder `README.md`.
+
 The systemd unit, the binary, the `.deb` package and the system user of a service share the same
 name (`ban-agent.service`, `/opt/ban/agent/ban-agent`, `ban-agent_<ver>_amd64.deb`, user `ban-agent`).
 
@@ -40,8 +44,8 @@ a shared workspace version in `Cargo.toml`.
 
 | Artifact | Pattern | Example |
 | --- | --- | --- |
-| Image | `ban-os-<OS_VERSION>-amd64.iso` / `.img` | `ban-os-1.0.0-amd64.iso` |
-| Build output of `make build` | `ban-os-<OS_VERSION>-<profile>-amd64.iso` | `ban-os-0.1.0-development-amd64.iso` |
+| Image | `ban-os-<OS_VERSION>-<variant>-amd64.iso` / `.img.zst` (`server` also `.qcow2`) | `ban-os-1.0.0-pos-amd64.iso`, `ban-os-1.0.0-server-amd64.iso` |
+| Build output of `make build` | `ban-os-<OS_VERSION>-<profile>-<variant>-amd64.iso` | `ban-os-0.1.0-development-pos-amd64.iso` |
 | Package | `<name>_<version>_amd64.deb` | `ban-agent_1.0.0_amd64.deb` |
 
 Build outputs go to `out/` (images) and `out/debs/` (packages); never commit them.
