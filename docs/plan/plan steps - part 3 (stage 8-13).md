@@ -4,6 +4,8 @@
 
 پوشش: OS-05 تا OS-10 از «plan p1» · BC-05، BC-07، BC-08، BC-09، BC-12 از «plan p2» · جزئیات «full-chat»
 
+دو Variant (بخش ۱، گام ۰.۸): `pos` و `server`. هر مرحله که در `server` فرق دارد، بخش «Variant server» دارد؛ رابط تکنسین `server` همان `ban-console` است (بخش ۲، گام ۵.۱۰).
+
 ---
 
 # مرحله ۸ — سخت‌افزار (OS-05 + BC-05)
@@ -160,6 +162,17 @@ Last Print: 14:31           Errors (7d): 2
 - `docs/operations/hardware-compatibility.md`: جدول برند/مدل/اتصال/وضعیت (تست‌شده، کار می‌کند، مشکل‌دار) — با هر نصب واقعی بروز می‌شود.
 - `tests/hardware/`: چک‌لیست دستی + تست خودکار با دستگاه مجازی (pty برای سریال، فایل برای lp).
 
+## Variant server
+
+این مرحله در `server` نیست: چاپگر، اسکنر، کشو و نمایشگر مشتری ندارد و `ban-hardware` نصب نمی‌شود. تنها استثنا پایش UPS است:
+
+- `nut` به `server.list.chroot` اضافه می‌شود: UPS با USB (کلاس HID Power Device)؛ Agent وضعیت را از `upsc` می‌خواند و در `system.power` (مرحله ۶) نشان می‌دهد.
+- رویدادها: `POWER_ON_BATTERY` (WARNING)، `POWER_RESTORED` (INFO)، `POWER_LOW_BATTERY_SHUTDOWN` (CRITICAL).
+- باتری کم → خاموشی تمیز پیش از قطع کامل برق (اول PostgreSQL، آخر `ban-event`)؛ Clientها پیام قطع اتصال Launcher را می‌بینند.
+- همین مسیر برای `pos` هم اختیاری است.
+
+معیار server: قطع برق ورودی UPS → رویداد؛ در باتری کم خاموشی تمیز؛ بوت بعدی DB سالم.
+
 ## معیار پذیرش
 
 روی سخت‌افزار واقعی: چاپ فارسی درست و باز شدن کشو، هم از Ban Center هم از Adad · کشیدن کابل چاپگر حین فروش → Adad ادامه می‌دهد، رویداد ثبت و بعد از اتصال چاپ مجدد ممکن است · جابه‌جایی پورت USB → دستگاه همچنان شناخته می‌شود.
@@ -275,6 +288,18 @@ Rollback کامل سطح OS (A/B، full-chat §19) بعد از 1.0؛ چیدما�
 
 متدها: `update.status` `update.check` `update.download` `update.install` `update.schedule` `update.history` `update.rollback` `update.install_offline` `update.settings.get|set`.
 
+## Variant server
+
+- meta-packageها: `ban-os-pos` و `ban-os-server` اجزای هر Variant را تعیین می‌کنند و `ban-os-release` نسخه‌ها را pin می‌کند (۹.۱). `ban-update` فقط meta-package همان Variant (`OS_VARIANT` در `/etc/ban/release`) را نصب می‌کند، پس آپدیت هیچ‌وقت Xorg یا Ban Center را روی سرور نمی‌آورد.
+- Manifest: `os.version` برای هر دو Variant یکی است؛ `components` همه اجزا را دارد و هر دستگاه فقط اجزای نصب‌شده خودش را آپدیت می‌کند.
+- Application Update روی `server` = بسته `adad-db` (migration)، نه `adad-pos`.
+- پیش‌شرط نصب روی `server`: به‌جای `adad.can_update`، نبود تراکنش باز از `adad_client` در `pg_stat_activity` + پنجره زمانی + Backup تازه؛ restart PostgreSQL همه صندوق‌ها را لحظه‌ای قطع می‌کند.
+- ترتیب در فروشگاه چندصندوقه: اول Server (schema جدید با `adad-db`)، بعد Clientها. Client پیش از نصب `adad-pos` جدید، `schema_version` سرور را می‌خواند و اگر هنوز قدیمی است نصب را عقب می‌اندازد (رویداد `UPDATE_DEFERRED`). قرارداد «migration سازگار با یک نسخه قبل» (۹.۵) باعث می‌شود Clientهای قدیمی بعد از آپدیت سرور کار کنند.
+- Health در `server`: PostgreSQL ✓ اتصال TLS روی LAN ✓ Network ✓ Configuration ✓ سرویس‌های Ban ✓ + ۱۰ دقیقه پایداری؛ ردیف‌های Adad و Printer ندارد. Rollback همان ۹.۵.
+- UI: صفحه Updates در `ban-console`؛ صفحه قفل «در حال بروزرسانی» روی tty1.
+
+معیار server: آپدیت سرور حین کار دو Client در پنجره زمانی → قطع کوتاه و اتصال مجدد خودکار Clientها · Client با Adad جدید پیش از آپدیت سرور → `UPDATE_DEFERRED`.
+
 ## معیار پذیرش
 
 انتشار نسخه جدید dummy → VM در پنجره زمانی خودکار آپدیت می‌شود · بسته/manifest دست‌کاری‌شده رد می‌شود · نسخه عمداً خراب Adad → rollback خودکار · قطع برق وسط `dpkg` → بوت بعدی سالم.
@@ -344,7 +369,7 @@ root فقط‌خواندنی (نکته immutable در full-chat): در این م
 
 ## گام ۱۰.۴ — Recovery Mode (full-chat §15)
 
-ورودی GRUB «Recovery» → `ban-recovery.target`: سیستم حداقلی، بدون Adad، با رابط متنی/گرافیکی ساده (نسخه سبک Ban Center با همان Agent در حالت recovery) پشت PIN مدیر:
+ورودی GRUB «Recovery» → `ban-recovery.target`: سیستم حداقلی، بدون Adad، با رابط متنی `ban-console --recovery` (بخش ۲، گام ۵.۱۰) با همان Agent، در هر دو Variant، پشت PIN مدیر:
 
 ```
 Repair filesystem        fsck روی root و data
@@ -385,6 +410,17 @@ Export support bundle    روی USB
 | تاریخچه عملیات بازیابی | رویدادهای `DATABASE_RESTORE` `FACTORY_RESET` `CONFIG_RESTORED` |
 
 متدها: `backup.list` `backup.create` `backup.verify` `backup.delete` `backup.settings` `restore.config` `restore.database` `recovery.reboot_to` `recovery.factory_reset` `job.status`.
+
+## Variant server
+
+- پارتیشن‌بندی ۱۰.۱ همان است؛ روی دیسک بزرگ‌تر سرور فقط Data بزرگ‌تر می‌شود. RAID سخت‌افزاری برای Ban OS شفاف است (یک دیسک منطقی)؛ RAID نرم‌افزاری (mdadm) بعد از 1.0.
+- Backup: شبانه اجباری و غیرقابل خاموش کردن؛ هشدار از ۲۴ ساعت (به‌جای ۴۸)؛ مقصد دوم (USB، بعداً Cloud) به‌شدت توصیه می‌شود، چون تنها نسخه داده فروشگاه روی سرور است.
+- Restore دیتابیس روی `server`: پیش از آن اتصال همه `adad_client`ها بسته می‌شود (`pg_terminate_backend`) و Clientها پیام قطع اتصال Launcher را می‌بینند؛ بعد از Restore خودکار وصل می‌شوند.
+- Restore روی سرور تازه (سخت‌افزار جدید): گواهی TLS و credential `adad_client` از نو ساخته می‌شوند، پس Clientها باید دوباره جفت شوند.
+- Recovery Mode (۱۰.۴) در هر دو Variant با `ban-console --recovery` است؛ نسخه سبک جداگانه‌ای از Ban Center لازم نیست.
+- WAL archiving و PITR (بازیابی تا لحظه پیش از خرابی) بعد از 1.0.
+
+معیار server: Restore یک Backup سرور روی سرور تازه‌نصب → Clientها بعد از جفت‌سازی مجدد با همان داده کار می‌کنند · `power-cut.sh` روی سرور حین فروش Clientها → سرور سالم بالا می‌آید و Clientها خودکار وصل می‌شوند.
 
 ## معیار پذیرش
 
@@ -495,6 +531,17 @@ PostgreSQL نقش Server: `listen_addresses` = IP LAN · `pg_hba`: `hostssl adad
 - Mass Storage فقط وقتی Agent موقتاً اجازه دهد (Backup، Support Bundle، آپدیت آفلاین)؛ mount با `noexec,nosuid,nodev`.
 - خطر BadUSB (HID جعلی): رویداد و اعلان برای HID جدیدِ دیده‌نشده؛ حالت سخت‌گیرانه اختیاری = تأیید تکنسین.
 
+## Variant server
+
+- نقش‌ها و ماتریس ۱۱.۱ همان است؛ ردیف «استفاده از Adad» در `server` معنی ندارد و «ورود به Ban Center» یعنی ورود به `ban-console`.
+- ۱۱.۳: بدون Xorg، WebKit و Chromium، پس `MemoryDenyWriteExecute` بدون استثنا؛ `security/hardening/enabled-units-<variant>.txt` برای هر Variant جدا و تست CI روی هر دو.
+- ۱۱.۴: قاعده firewall نقش Server همیشه فعال است؛ 5432 فقط از subnetهای LAN که در wizard تعیین شده‌اند.
+- SSH: در production مثل `pos` نصب نیست؛ مدیریت از راه دور بعد از 1.0 (Agent با mTLS، نه SSH).
+- ۱۱.۷ USB: HID (صفحه‌کلید کنسول و UPS) و Hub مجاز؛ Mass Storage مثل `pos` فقط با اجازه موقت Agent؛ Printer و CDC/Serial لازم نیستند و block می‌شوند.
+- امنیت فیزیکی: سرور معمولاً در اتاق یا رک است؛ رمز BIOS و بوت فقط از دیسک داخلی در راهنمای نصب سرور هم می‌آید. صفحه وضعیت `ban-console` بدون PIN هیچ اطلاعات حساسی ندارد.
+
+معیار server: همان چک‌لیست hardening و آزمون نفوذ، با سناریوی اضافه: اتصال به 5432 از subnet غیرمجاز یا بدون TLS رد می‌شود.
+
 ## معیار پذیرش
 
 چک‌لیست `docs/security/hardening.md` کامل پاس · آزمون نفوذ داخلی با سناریوهای: صندوق‌دار کنجکاو (کلیدهای ترکیبی، USB، کشیدن برق و بوت از USB)، تکنسین غیرمجاز (حدس PIN)، مهاجم شبکه محلی (اسکن پورت، اتصال به 5432 از subnet دیگر) · هیچ Secret در Image · دست‌کاری audit.db تشخیص داده می‌شود.
@@ -523,7 +570,7 @@ PostgreSQL نقش Server: `listen_addresses` = IP LAN · `pg_hba`: `hostssl adad
 
 ## گام ۱۲.۱ — خروجی‌های Build (full-chat §31)
 
-`ban-os-1.0.0-amd64.iso` (نصب‌کننده USB) · `ban-os-1.0.0-amd64.img.zst` (دیسک آماده برای clone کارخانه‌ای) · `SHA256SUMS` + امضا · `manifest-packages.txt` (فهرست دقیق بسته‌ها برای بازتولید).
+`ban-os-1.0.0-<variant>-amd64.iso` (نصب‌کننده USB) · `ban-os-1.0.0-<variant>-amd64.img.zst` (دیسک آماده برای clone کارخانه‌ای) · `SHA256SUMS` + امضا · `manifest-packages.txt` (فهرست دقیق بسته‌ها برای بازتولید). فقط `server`: `ban-os-1.0.0-server-amd64.qcow2` (دیسک آماده برای نصب به‌صورت VM، از همان `.img` با `qemu-img convert`؛ برای ESXi و Hyper-V به `vmdk` / `vhdx` قابل تبدیل). `<variant>` = `pos` یا `server`، هر دو با یک `OS_VERSION`.
 
 ## گام ۱۲.۲ — نصب‌کننده
 
@@ -539,6 +586,8 @@ Hardware Diagnostics      (live: تست touch، نمایشگر، شبکه، دی
 `installer/preseed/ban.cfg`: locale و keyboard ثابت · بدون mirror شبکه (نصب کامل آفلاین از ISO) · انتخاب دیسک: تنها دیسک داخلی غیر USB، اگر بیش از یکی بود سؤال · `partman-auto/expert_recipe` مطابق جدول مرحله ۱۰.۱ با GPT و EFI · بدون ساخت کاربر تعاملی · `grub-efi` با `--removable` برای BIOSهای بدقلق + fallback نصب legacy BIOS برای دستگاه‌های قدیمی · `late_command` → `installer/postinstall/` (bind mountهای `/data`، فعال‌سازی unitها، علامت `first-boot`).
 
 فقط یک تأیید: «تمام اطلاعات دیسک X پاک می‌شود». هدف: < ۱۰ دقیقه روی SSD.
+
+Variant server: همان preseed و جدول پارتیشن ۱۰.۱ با ISO خودش؛ ورودی «Hardware Diagnostics» فقط دیسک (SMART)، RAM و شبکه را تست می‌کند؛ نصب روی VM (دیسک virtio یا SCSI) هم پوشش داده می‌شود؛ با RAID سخت‌افزاری همان یک دیسک منطقی انتخاب می‌شود.
 
 ## گام ۱۲.۳ — First-boot wizard
 
@@ -568,6 +617,22 @@ Ban Center در «حالت setup» (همان برنامه Tauri، مسیر `/set
 
 هر مرحله رویداد `SETUP_*`؛ پایان: `DEVICE_PROVISIONED`.
 
+Variant server: wizard در `ban-console` (حالت `setup`، همان متدهای `setup.*`)، به انگلیسی و فقط با صفحه‌کلید:
+
+| # | صفحه در `server` |
+| --- | --- |
+| ۱ | Region: منطقه زمانی (زبان UI همیشه انگلیسی) |
+| ۲ | — (نمایشگر و touch ندارد) |
+| ۳ | Network: IP ثابت پیش‌فرض؛ DHCP فقط با تأیید رزرو DHCP؛ تعیین subnetهای LAN مجاز برای 5432 |
+| ۴ | Date & Time |
+| ۵ | New install / Restore from backup |
+| ۶ | — (نقش ثابت Server؛ همان کارهای ردیف Server جدول بالا) |
+| ۷ | Store ID و نام نمایشی؛ `terminal_id = "00"` برای سرور رزرو است |
+| ۸ | Activation؛ نوع License سرور با تیم Adad قطعی می‌شود |
+| ۹ | Admin PIN و رمز Backup |
+| ۱۰ | — (سخت‌افزار POS ندارد؛ فقط تشخیص UPS) |
+| ۱۱ | Summary → اعمال → نمایش کد جفت‌سازی (QR متنی + متن) → صفحه وضعیت |
+
 ## گام ۱۲.۴ — Device Identity (full-chat §27 و §28)
 
 ```TOML
@@ -582,6 +647,8 @@ provisioned_at  = "…"
 
 کلید Ed25519 روی خود دستگاه ساخته می‌شود: «Private key → device · Public key → activation server». hostname → `ban-8f92a1`. نصب مجدد روی همان سخت‌افزار: کلید جدید، ولی اثر انگشت سخت‌افزار (DMI serial + MAC) برای تشخیص «همان دستگاه» فرستاده می‌شود.
 
+در Variant server، `role` همیشه `"server"` است. خود Variant در `device.toml` نیست: ویژگی Image است، نه Provisioning، و از `OS_VARIANT` در `/etc/ban/release` خوانده می‌شود.
+
 ## گام ۱۲.۵ — Activation حداقلی (تنها جزء سمت سرور پیش از 1.0)
 
 `POST /v1/devices/activate` ← `{public_key, device_id, installation_id, store_id, terminal_id, license_code, hw_fingerprint, versions}` → `{status, license{…, signature}, channel}`. License امضاشده محلی ذخیره می‌شود و Launcher آن را **آفلاین** تأیید می‌کند (مرحله ۳.۳). فعال‌سازی آفلاین: دستگاه کد درخواست (QR) می‌دهد → پشتیبانی کد پاسخ می‌دهد. دوره مهلت بدون فعال‌سازی: قابل تنظیم (مثلاً ۷ روز) تا نصب در محل بدون اینترنت متوقف نشود. سرور: یک سرویس کوچک + PostgreSQL؛ همین بعداً نطفه Ban Cloud (BC-10) می‌شود.
@@ -595,12 +662,13 @@ provisioned_at  = "…"
 | Recovery Installation | ISO → «Recovery»: نصب مجدد System A **بدون دست زدن به `/data`** → داده و هویت می‌ماند |
 | بروزرسانی Image | تا پیش از A/B: همان Recovery Installation با ISO جدید |
 | آزمایشی و توسعه‌ای | Profile `development`: wizard با مقادیر پیش‌فرض قابل رد شدن (`ban.setup=auto`)، SSH روشن |
+| سرور (Variant server) | فیزیکی: USB ISO → unattended → wizard در `ban-console` · VM: import `.qcow2` (یا نصب با ISO روی VM) → اولین بوت: بزرگ‌کردن `/data` + wizard در کنسول VM |
 
 `installer/factory-setup/`: اسکریپت clone دسته‌ای + برگه QC (تست touch، چاپگر، شبکه، burn-in ۳۰ دقیقه‌ای) + چاپ برچسب `device_id`.
 
 ## معیار پذیرش
 
-از USB تا Adad آماده فروش < ۱۵ دقیقه با حداقل ورودی · نصب Server + دو Client در یک LAN و فروش هم‌زمان · Recovery Installation داده را حفظ می‌کند · دو دستگاه clone‌شده از یک Image، `device_id` متفاوت دارند · نصب روی حداقل ۳ مدل سخت‌افزار واقعی (UEFI و یک legacy).
+از USB تا Adad آماده فروش < ۱۵ دقیقه با حداقل ورودی · نصب Server (هم صندوق `pos` در نقش Server، هم Variant `server` روی سخت‌افزار و VM) + دو Client در یک LAN و فروش هم‌زمان · Recovery Installation داده را حفظ می‌کند · دو دستگاه clone‌شده از یک Image، `device_id` متفاوت دارند · نصب روی حداقل ۳ مدل سخت‌افزار واقعی (UEFI و یک legacy).
 
 خروجی (p1): «فرآیند مشخص برای تولید Image و نصب روی دستگاه‌های مختلف با حداقل دخالت دستی.»
 
@@ -628,9 +696,21 @@ provisioned_at  = "…"
 | قطع برق | `tests/reliability/power-cut.sh` + دستگاه واقعی | ۲۰۰/۲۰۰ |
 | پایداری طولانی‌مدت | soak ۷۲ساعت (سپس ۷روز) با فروش مصنوعی و چاپ | بدون نشت حافظه، رشد دیسک قابل پیش‌بینی |
 
+Variant server: همه ردیف‌های بالا روی Image `server` هم اجرا می‌شوند (به‌جز Adad، چاپ و touch)، به‌علاوه:
+
+| تست | معیار |
+| --- | --- |
+| آپدیت سرور حین فروش Clientها | قطع کوتاه، اتصال مجدد خودکار، هیچ تراکنش ناقص |
+| restart و قطع برق سرور حین فروش | سرور سالم؛ Clientها پیام واضح و اتصال مجدد |
+| بار | حداکثر تعداد Client پشتیبانی‌شده (با تیم Adad تعیین می‌شود) با فروش مصنوعی، soak ۷۲ساعت |
+| نصب VM | `.qcow2` روی KVM/Proxmox و حداقل یک hypervisor دیگر |
+| RAM بیکار | ثبت baseline |
+
 ## گام ۱۳.۲ — ماتریس تست Ban Center (همه اقلام p2 BC-12)
 
 عملکرد UI روی ضعیف‌ترین سخت‌افزار · ارتباط با Agent (قطع، کندی، نسخه ناسازگار) · مجوزها (هر نقش × هر عملیات از روی `roles.toml`، خودکار) · عملیات حساس (تأیید، احراز هویت مجدد، Audit) · قطع ارتباط با سرویس‌ها (NM، systemd، CUPS، PostgreSQL پایین) · خطاهای شبکه · سخت‌افزارهای هدف (رزولوشن‌ها، چرخش، touch) · خوانایی و کاربردپذیری (آزمون با ۳ تکنسین واقعی: ۸ سناریو بدون راهنما) · Maintenance Mode (هر سه مسیر ورود) · ثبت رویدادها (هر عملیات = رویداد درست) · امنیت (WebView بدون دسترسی OS، CSP، بدون devtools).
+
+`ban-console` (رابط Variant server و Recovery هر دو): مجوزها از روی `roles.toml` · قطع و نسخه ناسازگار Agent · wizard کامل · کار روی tty1 و serial (IPMI) · هیچ راه رسیدن به shell بدون احراز هویت · خوانایی روی ۸۰×۲۵.
 
 ## گام ۱۳.۳ — Pilot
 
@@ -639,11 +719,12 @@ provisioned_at  = "…"
 ## گام ۱۳.۴ — فرآیند انتشار (full-chat §31)
 
 ```
-tag → CI: build debs → build ISO/IMG → test-boot → integration (QEMU) → sign
+tag → CI: build debs → build ISO/IMG (هر دو Variant) → test-boot → integration (QEMU) → sign
     → publish dev → (تست دستی + سخت‌افزار) → promote beta → (pilot) → promote stable با rollout 10% → 50% → 100%
 ```
 
 - تعیین نسخه پایدار: `1.0.0`؛ پس از آن `1.0.x` فقط رفع باگ/امنیت، `1.x` قابلیت.
+- هر دو Variant با یک `OS_VERSION` و یک tag منتشر می‌شوند؛ Release Notes مشترک با بخش جدا برای `server`؛ جدول سازگاری (`compatibility.md`) ستون `adad-db` (نسخه schema) را هم دارد.
 - Release Notes فارسی برای کاربر (در manifest) + فنی در `docs/release/`.
 - جدول سازگاری نسخه‌ها (Ban OS ↔ Agent API ↔ Center ↔ Adad ↔ Hardware API) در `docs/release/compatibility.md`.
 - پشتیبانی نسخه‌ها: آخرین دو minor؛ وصله امنیتی Debian حداکثر ظرف ۷ روز روی stable.
@@ -652,6 +733,8 @@ tag → CI: build debs → build ISO/IMG → test-boot → integration (QEMU) �
 ## گام ۱۳.۵ — مستندات (p2)
 
 مستندات تکنسین (`docs/operations/technician-guide-fa.md`: نصب، wizard، هر صفحه Ban Center، عیب‌یابی رایج، Recovery، کد اضطراری) · مستندات پشتیبانی (خواندن Support Bundle، جدول کدهای خطا و رویدادها، رویه Rollback) · کارت یک‌صفحه‌ای صندوق‌دار («اگر صفحه خطا دیدید…»).
+
+Variant server: `docs/operations/server-guide.md` (سخت‌افزار و VM، نصب، IP ثابت، جفت‌سازی Clientها، Backup و Restore، UPS، ترتیب آپدیت Server و Client).
 
 ## خروجی
 
@@ -702,3 +785,5 @@ tag → CI: build debs → build ISO/IMG → test-boot → integration (QEMU) �
 | Ban Desk (BD-01…08) — RustDesk self-hosted | رویدادهای `REMOTE_SUPPORT_*`، نقش Support Agent، صفحه Remote Support، `support.toml`، انتخاب Xorg |
 | A/B OS Update | پارتیشن System B، ارزیابی root فقط‌خواندنی، Health check و bootcount |
 | Secure Boot و TPM | کلید دستگاه در مسیر جدا، `systemd-creds`، LUKS اختیاری |
+| مدیریت Variant server از راه دور (Agent روی شبکه با mTLS؛ از Ban Center یک صندوق یا از Ban Cloud) | قرارداد نسخه‌دار Agent، کلاینت مشترک `ban-agent-client`، Device Identity، نقش‌ها |
+| Variant server: RAID نرم‌افزاری، WAL archiving و PITR، replica دوم | `/data` جدا، Backup رمزنگاری‌شده، TLS و نقش `adad_client` |

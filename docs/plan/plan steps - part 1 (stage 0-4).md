@@ -6,6 +6,8 @@
 
 قالب هر مرحله: هدف ← پوشش اقلام p1/p2 ← فایل‌هایی که ساخته می‌شوند ← گام‌های تفصیلی ← رویدادها ← تست‌ها ← معیار پذیرش ← خروجی.
 
+دو Variant (گام ۰.۸): `pos` (صندوق گرافیکی) و `server` (سرور فروشگاه بدون UI گرافیکی). هر مرحله که در `server` فرق دارد، بخش «Variant server» دارد؛ بقیه برای هر دو یکسان است.
+
 ---
 
 # مرحله ۰ — آماده‌سازی
@@ -63,6 +65,7 @@ ban-os/
 ├── event/                        ← ban-event (Rust)
 │   ├── audit/ · system-events/ · storage/
 ├── center/ban-center/            ← Tauri 2 + React
+├── console/ban-console/          ← رابط متنی Variant server و Recovery (Rust + ratatui)
 ├── launcher/adad-launcher/       ← Python/PyQt (هم‌خانواده Adad)
 ├── hardware/                     ← ban-hardware + adapterها
 │   ├── printer/ scanner/ cash-drawer/ customer-display/ scale/ payment-terminal/
@@ -74,6 +77,7 @@ ban-os/
 ├── image/
 │   ├── live-build/               ← auto/ و config/
 │   ├── packages/                 ← *.list.chroot
+│   ├── variants/                 ← pos/ و server/: variant.env، package-list و فایل‌های هر Variant
 │   ├── configuration/            ← فایل‌هایی که وارد / می‌شوند
 │   └── scripts/                  ← hookها و build-image.sh
 ├── kiosk/ session/ display/ maintenance/
@@ -90,8 +94,8 @@ ban-os/
 | هدف | کار |
 | --- | --- |
 | `make debs` | ساخت همه `.deb`های Ban (agent، event، center، launcher، hardware، updater) در `out/debs/` |
-| `make build PROFILE=development` | `lb clean` → `lb config` → `lb build`؛ خروجی `out/ban-os-<ver>-<profile>-amd64.iso` |
-| `make run-vm` | QEMU + OVMF + دیسک مجازی ۳۲GB + صفحه 1024×768 (اندازه رایج POS) |
+| `make build PROFILE=development VARIANT=pos` | `lb clean` → `lb config` → `lb build`؛ خروجی `out/ban-os-<ver>-<profile>-<variant>-amd64.iso` |
+| `make run-vm` | QEMU + OVMF + دیسک مجازی ۳۲GB (یکی برای هر Variant) + صفحه 1024×768 (اندازه رایج POS) |
 | `make test-boot` | بوت headless و انتظار برای نشانه موفقیت روی serial |
 | `make clean` | پاک‌سازی chroot و cache |
 
@@ -109,12 +113,26 @@ ban-os/
 
 - نسخه‌ها (full-chat §35): `OS_VERSION`، `APP_VERSION`، `AGENT_API_VERSION`، `HARDWARE_API_VERSION`؛ همه SemVer؛ فایل `/etc/ban/release` روی دستگاه همه را دارد.
 - نام سرویس‌ها: `ban-agent`، `ban-event`، `ban-sync`، `ban-update`، `ban-hardware`، `adad`، `adad-launcher`.
-- نام Image: `ban-os-1.0.0-amd64.iso` / `.img`؛ نام بسته‌ها: `ban-agent_1.0.0_amd64.deb`.
+- نام Image: `ban-os-1.0.0-pos-amd64.iso` و `ban-os-1.0.0-server-amd64.iso` / `.img.zst`؛ نام بسته‌ها: `ban-agent_1.0.0_amd64.deb`.
 - شاخه‌ها: `main` (پایدار)، `develop`، `feature/*`، `release/*`؛ tag = `os-v1.0.0`، `center-v1.0.0`.
+
+## گام ۰.۸ — دو Variant: `pos` و `server`
+
+| Variant | چیست | `default.target` | نقش‌های دستگاه | رابط تکنسین |
+| --- | --- | --- | --- | --- |
+| `pos` (پیش‌فرض) | صندوق فروش: LightDM autologin، Kiosk، Adad، Ban Center | `graphical.target` | Standalone / Server / Client | Ban Center |
+| `server` | سرور فروشگاه بدون UI گرافیکی: PostgreSQL + سرویس‌های Ban، روی سخت‌افزار سرور یا VM | `multi-user.target` | فقط Server | `ban-console` (متنی، tty1) |
+
+- Variant مستقل از Profile است: Profile می‌گوید Image چقدر قفل است، Variant می‌گوید Image چیست. هر ترکیبی مجاز است: `make build PROFILE=<profile> VARIANT=<pos|server>`.
+- هر Variant = یک پوشه در `image/variants/<variant>/`: `variant.env` (`BAN_VARIANT`، `BAN_DEFAULT_TARGET`، `BAN_DEVICE_ROLES`)، package-list افزوده، فایل‌های افزوده (از مرحله ۱).
+- package-listها از سه منبع جمع می‌شوند: `image/packages/` (مشترک) + `image/variants/<variant>/package-lists/` + `config/<profile>/package-lists/`؛ نام تکراری بین این سه = توقف Build.
+- خروجی: `out/ban-os-<ver>-<profile>-<variant>-amd64.iso`؛ `make run-vm` برای هر Variant دیسک جدا دارد (`out/disk-<variant>.qcow2`).
+- هر دو Variant یک `OS_VERSION` دارند و همیشه با هم منتشر می‌شوند؛ روی دستگاه `OS_VARIANT` در `/etc/ban/release` نوشته می‌شود (گام ۱.۳).
+- چرا دو ISO و نه یک ISO با گزینه «بدون UI»: live-build بسته‌ها را هنگام Build نصب می‌کند؛ ISO مشترک یعنی Xorg، LightDM، Chromium و WebKitGTK روی سرور هم هستند.
 
 ## معیار پذیرش
 
-`make build PROFILE=development` روی VM بدون اینترنت خارجی اجرا و ISO (حتی خالی) تولید می‌شود.
+`make build PROFILE=development` برای هر دو Variant روی VM بدون اینترنت خارجی اجرا و دو ISO (حتی خالی) تولید می‌شود.
 
 ---
 
@@ -157,17 +175,21 @@ lb config noauto \
 
 ## گام ۱.۲ — package-listها (`image/packages/`)
 
-| فایل | محتوا |
-| --- | --- |
-| `base.list.chroot` | `linux-image-amd64 systemd systemd-sysv systemd-timesyncd dbus udev sudo ca-certificates` |
-| `firmware.list.chroot` | `firmware-linux firmware-linux-nonfree firmware-realtek firmware-iwlwifi firmware-misc-nonfree intel-microcode amd64-microcode` |
-| `network.list.chroot` | `network-manager wpasupplicant iw rfkill nftables` |
-| `print.list.chroot` | `cups cups-filters` |
-| `locale.list.chroot` | `locales tzdata fonts-vazirmatn fonts-noto-core keyboard-configuration` (اگر `fonts-vazirmatn` در trixie نبود، فونت از `includes.chroot/usr/share/fonts/` وارد شود — مجوز OFL) |
-| `postgres.list.chroot` | `postgresql-17 postgresql-client-17` |
-| `browser.list.chroot` | `chromium` |
-| `diag.list.chroot` | `smartmontools usbutils pciutils lm-sensors` |
-| `dev.list.chroot` (فقط development) | `openssh-server htop vim strace` |
+| فایل | محتوا | Variant |
+| --- | --- | --- |
+| `base.list.chroot` | `linux-image-amd64 systemd systemd-sysv systemd-timesyncd dbus udev sudo ca-certificates` | همه |
+| `firmware.list.chroot` | `firmware-linux firmware-linux-nonfree firmware-realtek firmware-iwlwifi firmware-misc-nonfree intel-microcode amd64-microcode` | همه |
+| `network.list.chroot` | `network-manager wpasupplicant iw rfkill nftables` | همه |
+| `print.list.chroot` | `cups cups-filters` | `pos` |
+| `locale.list.chroot` | `locales tzdata keyboard-configuration` | همه |
+| `fonts.list.chroot` | `fonts-vazirmatn fonts-noto-core` (اگر `fonts-vazirmatn` در trixie نبود، فونت از `includes.chroot/usr/share/fonts/` وارد شود — مجوز OFL) | `pos` |
+| `postgres.list.chroot` | `postgresql-17 postgresql-client-17` | همه |
+| `browser.list.chroot` | `chromium` | `pos` |
+| `diag.list.chroot` | `smartmontools usbutils pciutils lm-sensors` | همه |
+| `server.list.chroot` | `qemu-guest-agent open-vm-tools hyperv-daemons` (هر کدام فقط روی hypervisor خودش فعال می‌شود؛ برای نصب سرور به‌صورت VM) | `server` |
+| `dev.list.chroot` (فقط development) | `openssh-server htop vim strace` | همه |
+
+ستون Variant: «همه» در `image/packages/`؛ `pos` و `server` در `image/variants/<variant>/package-lists/`؛ `dev.list.chroot` در `config/development/package-lists/`. فونت‌ها در `server` لازم نیستند چون کنسول متنی فارسی را رندر نمی‌کند و رسید چاپ نمی‌شود.
 
 آنچه **نصب نمی‌شود** (اصل full-chat: «نه GNOME، نه KDE، نه Desktop کامل»): هیچ desktop environment، file manager، terminal emulator، office، avahi، bluetooth (مگر سخت‌افزار هدف لازم داشته باشد).
 
@@ -180,7 +202,7 @@ lb config noauto \
 | `/etc/timezone` | `Asia/Tehran` |
 | `/etc/default/keyboard` | `XKBLAYOUT="us,ir"` `XKBOPTIONS="grp:alt_shift_toggle"` |
 | `/etc/systemd/journald.conf.d/ban.conf` | `Storage=persistent` `SystemMaxUse=200M` `MaxRetentionSec=1month` `Compress=yes` |
-| `/etc/ban/release` | `OS_VERSION=…` و بقیه نسخه‌ها (در build پر می‌شود) |
+| `/etc/ban/release` | `OS_VERSION=…`، `OS_VARIANT=pos` یا `server` و بقیه نسخه‌ها (در build پر می‌شود) |
 
 ## گام ۱.۴ — زمان
 
@@ -212,10 +234,11 @@ lb config noauto \
 
 ## گام ۱.۷ — تست
 
-- `make run-vm`: `qemu-system-x86_64 -enable-kvm -m 4096 -smp 2 -bios /usr/share/OVMF/OVMF_CODE.fd -cdrom out/*.iso -drive file=out/disk.qcow2,if=virtio -serial stdio -vga virtio`
+- `make run-vm`: `qemu-system-x86_64 -enable-kvm -m 4096 -smp 2 -bios /usr/share/OVMF/OVMF_CODE.fd -cdrom out/*.iso -drive file=out/disk-<variant>.qcow2,if=virtio -serial stdio -vga virtio`
 - `make test-boot`: بوت headless؛ سرویس `ban-boot-ok.service` بعد از `multi-user.target` رشته `BAN-BOOT-OK <version>` را روی `ttyS0` می‌نویسد؛ اسکریپت تا ۱۲۰ ثانیه منتظر می‌ماند.
-- CI (self-hosted runner روی همان VM): هر push → `make debs build test-boot`.
+- CI (self-hosted runner روی همان VM): هر push → `make debs` و سپس `make build test-boot` برای هر دو Variant (`VARIANT=pos` و `VARIANT=server`).
 - فهرست سخت‌افزار تست (full-chat §32): Intel N100، AMD، mini PC، touch POS — جدول در `docs/operations/test-hardware.md`.
+- سخت‌افزار تست Variant server: یک mini PC یا سرور کوچک با دو NIC، و VM روی KVM/Proxmox و حداقل یک hypervisor دیگر (VMware ESXi یا Hyper-V).
 
 ## گام ۱.۸ — مستندات
 
@@ -223,11 +246,13 @@ lb config noauto \
 
 ## معیار پذیرش
 
-ISO در QEMU/UEFI بوت می‌شود · `timedatectl` = Asia/Tehran و NTP فعال · `pg_lsclusters` = online · `make test-boot` سبز · حجم ISO ثبت می‌شود (هدف: < ۱٫۲GB).
+هر دو ISO در QEMU/UEFI بوت می‌شوند · `timedatectl` = Asia/Tehran و NTP فعال · `pg_lsclusters` = online · `make test-boot` برای هر دو Variant سبز · حجم هر ISO ثبت می‌شود (هدف: `pos` < ۱٫۲GB، `server` < ۸۰۰MB).
 
 ## خروجی
 
 «یک Image اولیه که بوت می‌شود و به‌عنوان پایه فازهای بعدی قابل استفاده است.» (p1)
+
+در این مرحله دو Variant فقط در package-listها فرق دارند؛ خروجی `server` تقریباً همان پایه نهایی سرور است.
 
 ---
 
@@ -353,6 +378,22 @@ Plymouth theme `ban` در `kiosk/display/plymouth/`: لوگوی Ban OS، نوا�
 | fsck خطا بدهد | تعمیر خودکار (`fsck.repair=yes`)؛ اگر نشد → Recovery target |
 | kernel panic | reboot بعد از ۱۰ث؛ شمارنده بوت ناموفق در `/var/lib/ban/bootcount`؛ ۳ بار پیاپی → ورودی Recovery |
 | پارتیشن داده mount نشود | Launcher صفحه خطا می‌دهد، Adad اجرا نمی‌شود (هرگز روی root داده ننویسد) |
+
+## Variant server
+
+| گام | در `server` |
+| --- | --- |
+| ۲.۱ GRUB | همان تنظیمات، با دو ورودی «Ban OS» و «Recovery» (ورودی Maintenance لازم نیست چون کنسول همیشه پشت PIN است)؛ بدون `splash`؛ `console=tty0 console=ttyS0,115200n8` تا kernel و `ban-console` روی IPMI serial-over-LAN هم دیده شوند؛ GRUB با `terminal_output console serial` |
+| ۲.۲ systemd | `default.target = multi-user.target`؛ همان maskها؛ `getty@tty1` در مرحله ۵ با `ban-console@tty1.service` جایگزین می‌شود؛ tty2 تا tty6 بسته |
+| ۲.۳ تا ۲.۶ | ندارد: بدون Xorg، LightDM، Openbox و Plymouth |
+| کاربران | `root` (قفل)، `maintenance`، `ban-agent`، `ban-console`؛ کاربر `adad` ساخته نمی‌شود |
+| ۲.۷ خطای بوت | fsck، kernel panic، bootcount و پارتیشن داده مثل `pos`؛ ردیف X ندارد |
+
+تا مرحله ۵، tty1 فقط صفحه وضعیت متنی نشان می‌دهد: `getty@tty1` با `/etc/issue` اختصاصی (نسخه Ban OS، hostname، IP با `\4`). ورود از آن فقط در Profile `development` و برای کاربر `maintenance` ممکن است.
+
+زمان بوت: kernel تا صفحه وضعیت، ثبت در `docs/operations/boot-time.md` کنار `pos`.
+
+معیار پذیرش server: Power on → صفحه وضعیت روی tty1 و serial، بدون ورودی دستی · هیچ بسته Xorg نصب نیست (`dpkg -l 'xserver-*'` خالی) · F12 منوی GRUB را نشان می‌دهد و ویرایش آن رمز می‌خواهد.
 
 ## رویدادها
 
@@ -511,6 +552,22 @@ allowlist واقعی از `/etc/ban/browser.json` ساخته می‌شود؛ د�
 ## گام ۳.۸ — بسته‌بندی Adad واقعی
 
 `adad-pos_<ver>_amd64.deb`: فایل‌ها در `/opt/adad` (venv یا PyInstaller bundle)، `Depends: postgresql-client-17, ban-launcher`، `postinst` برای migration دیتابیس، بدون هیچ داده در بسته. `APP_VERSION` در `/opt/adad/VERSION`. Adad باید: `sd_notify` watchdog بدهد، با exit code معنی‌دار خارج شود، به `ban-event` رویداد بدهد (CLI یا socket).
+
+## Variant server
+
+از این مرحله فقط ۳.۲ (PostgreSQL) در `server` هست؛ ۳.۱ و ۳.۳ تا ۳.۸ (Launcher، Kiosk، صفحه‌کلید لمسی، مرورگر، مسیر Maintenance گرافیکی، بسته Adad) نیستند.
+
+| مورد | `server` |
+| --- | --- |
+| tuning | در اولین بوت از RAM دستگاه محاسبه می‌شود (`ban-pg-tune` در `apps/postgres/`): `shared_buffers` ≈ ۲۵٪ RAM، `effective_cache_size` ≈ ۶۰٪ RAM، `max_connections=100`؛ `synchronous_commit=on` مثل `pos` |
+| اتصال | تا Provisioning فقط Unix socket (مثل `pos`)؛ listen روی LAN و TLS در مراحل ۱۱ و ۱۲ |
+| schema | بسته `adad-db` (از مخزن `adad-pos`): فقط schema و migrationها، بدون UI؛ `postinst` migration را با نقش مالک دیتابیس اجرا می‌کند. روی `pos` همین کار را `postinst` بسته `adad-pos` می‌کند (۳.۸). وجود و محتوای این بسته با تیم Adad قطعی می‌شود؛ اگر Adad جزء سمت سرور دیگری دارد، بسته `adad-server` |
+| کاربر `adad` | کاربر Linux ساخته نمی‌شود؛ نقش دیتابیس `adad` مالک DB است و Clientها با `adad_client` وصل می‌شوند (مرحله ۱۱) |
+| Maintenance | مسیر گرافیکی ندارد؛ `ban-console` (مرحله ۵) همیشه پشت PIN است. تا آن زمان فقط در Profile `development` ورود `maintenance` از tty1 |
+
+تست server: stop کردن PostgreSQL → `postgresql@17-main` خودکار restart می‌شود و صفحه وضعیت tty1 آن را نشان می‌دهد · tuning روی VM با ۴GB و ۱۶GB RAM مقادیر متفاوت می‌دهد · `adad-db` روی دیتابیس خالی و روی دیتابیس نسخه قبل migrate می‌کند.
+
+معیار پذیرش server (M1): بوت headless، PostgreSQL سالم با tuning درست، وضعیت آن روی tty1.
 
 ## تست‌ها (`tests/boot/` و `tests/integration/`)
 
@@ -676,13 +733,13 @@ p2: «Ban Center نباید برای هر عملیات مستقیماً با د�
 | مورد | طراحی |
 | --- | --- |
 | Transport | Unix socket `/run/ban/agent.sock`، مالک `ban-agent:ban-ipc` مود `0660`؛ JSON-RPC 2.0، هر پیام یک خط |
-| احراز هویت لایه ۱ | `SO_PEERCRED`: فقط uidهای مجاز (`adad`، `maintenance`، root) |
+| احراز هویت لایه ۱ | `SO_PEERCRED`: فقط uidهای مجاز (`adad`، `maintenance`، root؛ در Variant server `ban-console`) |
 | احراز هویت لایه ۲ | `auth.login(pin)` → session token با نقش و انقضا؛ متدهای تغییردهنده token می‌خواهند. چون Adad و Ban Center هر دو زیر uid `adad` هستند، مجوز واقعی = token نه uid |
 | سطح دسترسی Agent | کاربر سیستمی `ban-agent` + polkit ruleها برای systemd1 و NetworkManager + helperهای root کوچک با آرگومان ثابت (`/opt/ban/agent/helpers/*`) برای معدود کارهای root |
 | ساختار | کنترلرهای p2: System · Network · Service · Hardware · Log · Update · Recovery · Permission |
-| خطا | کدهای ثابت: `UNAUTHENTICATED` `FORBIDDEN` `NOT_FOUND` `INVALID_PARAMS` `BACKEND_UNAVAILABLE` `CONFLICT_STATE` `TIMEOUT` `INTERNAL` + `message_fa` و `trace_id` (الزام p2: «خطای قابل فهم و قابل پیگیری») |
+| خطا | کدهای ثابت: `UNAUTHENTICATED` `FORBIDDEN` `NOT_FOUND` `INVALID_PARAMS` `BACKEND_UNAVAILABLE` `CONFLICT_STATE` `TIMEOUT` `NOT_SUPPORTED` `INTERNAL` + `message_fa`، `message_en` (برای `ban-console`) و `trace_id` (الزام p2: «خطای قابل فهم و قابل پیگیری») |
 | Audit | هر متد تغییردهنده، موفق یا ناموفق، رویداد Audit با actor از token ثبت می‌کند — در یک نقطه مرکزی (middleware)، نه در هر کنترلر |
-| نسخه | `agent.version` → `{agent, api, os}`؛ Center در اتصال سازگاری را چک می‌کند (الزام p2: Version Compatibility) |
+| نسخه | `agent.version` → `{agent, api, os, variant}`؛ Center در اتصال سازگاری را چک می‌کند (الزام p2: Version Compatibility) |
 
 متدهای این مرحله (فقط‌خواندنی): `agent.ping` · `agent.version` · `auth.login` · `auth.logout` · `auth.session` · `system.info` · `services.list` · `events.query` · `session.request_maintenance`.
 
@@ -710,6 +767,16 @@ Outbox (full-chat §14): خواندن `events WHERE synced_at IS NULL` به تر
 | Recovery Configuration | `/etc/ban/recovery.toml` (زمان‌بندی و مقصد Backup) | Agent | Technician |
 
 قاعده: هر نوشتن از طریق Agent = نوشتن اتمیک (tmp + rename) + نسخه قبلی در `/var/lib/ban/config-history/` + رویداد `CONFIG_CHANGED`. پایه «بازیابی تنظیمات» در OS-07.
+
+## Variant server
+
+همه این مرحله مشترک است؛ فقط این تفاوت‌ها:
+
+- جدول ۴.۱: `adad-launcher`، `adad` و `ban-center` در `server` نیستند؛ `ban-hardware` هم نیست (پایش UPS مرحله ۸ در Agent است)؛ به‌جایش `ban-console@tty1` (system، `Restart=always`، تنها رابط محلی). `postgresql@17-main` همیشه حیاتی است.
+- Agent: `OS_VARIANT` را از `/etc/ban/release` می‌خواند و در `agent.version` برمی‌گرداند. متدهایی که در یک Variant معنی ندارند (`display.*`، `hardware.*`، `session.request_maintenance` در `server`) کد `NOT_SUPPORTED` می‌دهند؛ این تصمیم در همان middleware مرکزی گرفته می‌شود، نه در هر کنترلر.
+- نقشه ۴.۷: `display.toml` و `hardware.toml` در `server` نیستند؛ `pos.toml` همیشه `role = "server"` دارد.
+- رویدادها: کاتالوگ مشترک است؛ `ADAD_*`، `LAUNCHER_CHECK`، `BROWSER_OPENED`، `GRAPHICS_FAILED` و رویدادهای سخت‌افزار POS در `server` تولید نمی‌شوند.
+- تست: همه تست‌های این مرحله روی هر دو Variant؛ + متد `display.*` روی `server` → `NOT_SUPPORTED`.
 
 ## تست‌ها
 

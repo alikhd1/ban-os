@@ -4,6 +4,8 @@
 
 پوشش: BC-01، BC-02، BC-03، BC-04، BC-06 از «plan p2» + صفحه‌های طراحی‌شده در «full-chat»
 
+Ban Center فقط در Variant `pos` است (بخش ۱، گام ۰.۸). Variant `server` همین کارها را با `ban-console` انجام می‌دهد (گام ۵.۱۰)؛ هر مرحله یک بخش «Variant server» دارد.
+
 اصل حاکم (p2): «Ban Center باید به‌عنوان Control Plane سیستم‌عامل عمل کند، نه جایگزینی برای سرویس‌های استاندارد Linux.» و جدول full-chat §15:
 
 | قابلیت | Backend | Ban Center |
@@ -156,9 +158,47 @@ Sidebar راست با ۱۱ بخش؛ هر بخش تب‌های داخلی. نقش
 - بسته: `ban-center_<ver>_amd64.deb` (Tauri bundler)، `Depends: libwebkit2gtk-4.1-0, libgtk-3-0, ban-agent (>= x)`؛ نصب در `/opt/ban/center`؛ user unit `ban-center.service` با `Conflicts=adad-launcher.service`.
 - سنجش روی ضعیف‌ترین سخت‌افزار هدف: زمان باز شدن (هدف < ۳ث)، RAM (هدف < ۳۰۰MB). اگر WebKitGTK روی GPU قدیمی مشکل داشت: `WEBKIT_DISABLE_COMPOSITING_MODE=1`.
 
+## گام ۵.۱۰ — `ban-console` (Variant server)
+
+Variant `server` رابط گرافیکی ندارد؛ `ban-console` نقش Ban Center را در حالت متنی دارد، با همان اصل حاکم (Control Plane روی Agent، نه جایگزین سرویس‌های Linux) و همان ده الزام مشترک، جز Localization (متن انگلیسی) و touch.
+
+| مورد | طراحی |
+| --- | --- |
+| فناوری | Rust + `ratatui` + `crossterm`؛ crate `console/ban-console` در همان Cargo workspace؛ typeها مستقیم از `ban-api-types` (بدون لایه TypeScript) |
+| کلاینت Agent | منطق ۵.۳ (timeout، reconnect با backoff، job، subscription) در crate مشترک `crates/ban-agent-client`؛ هسته Tauri و `ban-console` هر دو از همان استفاده می‌کنند |
+| اجرا | `ban-console@tty1.service` (system unit، `User=ban-console`، گروه `ban-ipc`، `TTYPath=/dev/tty1`، `Restart=always`) به‌جای `getty@tty1`؛ اختیاری `ban-console@ttyS0` برای IPMI serial-over-LAN |
+| زبان | انگلیسی. کنسول لینوکس شکل‌دهی حروف و راست‌به‌چپ فارسی را ندارد و فونتش حداکثر ۵۱۲ glyph دارد. پیام خطا از `message_en` Agent (بخش ۱، گام ۴.۵) |
+| ورودی و اندازه | فقط صفحه‌کلید؛ حداقل ۸۰×۲۵ کاراکتر |
+| صفحه وضعیت (بدون PIN) | hostname، `device_id`، نسخه‌ها، IP هر رابط، نقش، وضعیت PostgreSQL و تعداد Clientهای متصل، آخرین Backup موفق، هشدارهای `system.alerts`؛ هیچ اطلاعات حساس (کد جفت‌سازی، رمز) |
+| ورود | کلید `Enter` → PIN → همان `auth.login`، نقش‌ها، قفل پس از تلاش ناموفق و timeout بی‌کاری ۵.۶ (کامل در مرحله ۱۱)؛ بی‌کاری → بازگشت به صفحه وضعیت |
+| امنیت | بدون shell؛ `Ctrl+C`، `Ctrl+Z` و `Ctrl+\` بی‌اثر؛ خروج از برنامه ممکن نیست (systemd دوباره اجرا می‌کند)؛ ترمینال `maintenance` فقط از منوی Tools با احراز هویت مجدد (۶.۵) و رویداد `TOOL_LAUNCHED` |
+| Recovery | `ban-console --recovery` رابط `ban-recovery.target` در هر دو Variant است (بخش ۳، گام ۱۰.۴)، چون در Recovery هیچ X در کار نیست |
+| تست | همان `mock-agent` ۵.۹؛ `crossterm` روی Windows هم کار می‌کند، پس توسعه بدون VM ممکن است؛ تست snapshot صفحه‌ها با `ratatui` `TestBackend` |
+| بسته | `ban-console_<ver>_amd64.deb` در `/opt/ban/console`، `Depends: ban-agent (>= x)`؛ در هر دو Variant نصب می‌شود (در `pos` فقط برای Recovery) |
+
+منوی پشت PIN و مرحله ساخت هر بخش:
+
+| بخش | محتوا | مرحله |
+| --- | --- | --- |
+| Status | صفحه وضعیت با جزئیات | ۵ |
+| Power | Reboot / Shutdown با تأیید و رویداد | ۵ |
+| System & Services | CPU، RAM، دیسک، دما؛ فهرست و restart سرویس‌ها | ۶ |
+| Logs & Events | فیلتر نوع، شدت و بازه؛ Export روی USB | ۶ |
+| Support Bundle | روی USB | ۶ |
+| Tools | `ban-tech-tools-cli` و ترمینال `maintenance` | ۶ |
+| Network | Ethernet، IP ثابت / DHCP، DNS، Diagnostics با rollback خودکار | ۷ |
+| Date & Time | منطقه زمانی، NTP | ۷ |
+| Updates | نسخه‌ها، بررسی و نصب، تاریخچه | ۹ |
+| Backup & Recovery | Backup، Restore، Verify؛ Reboot to Recovery | ۱۰ |
+| Users & Access | کاربران، نقش‌ها، PIN | ۱۱ |
+| Pairing | کد جفت‌سازی Clientها: QR با کاراکترهای block یونیکد + متن | ۱۲ |
+| Setup | First-boot wizard متنی | ۱۲ |
+
 ## معیار پذیرش
 
 Maintenance → PIN → Ban Center با Navigation کامل · stop کردن `ban-agent` → حالت `agent_down` و بازگشت خودکار · خروج → Adad · نسخه ناسازگار Agent → صفحه incompatible.
+
+Variant server: tty1 → صفحه وضعیت → PIN → منو · stop کردن `ban-agent` → پیام «Agent unavailable» و اتصال مجدد خودکار · kill کردن `ban-console` → برگشت در کمتر از ۳ ثانیه · `Ctrl+C` و `Ctrl+Z` به shell نمی‌رسند.
 
 ## خروجی
 
@@ -323,6 +363,18 @@ ban-support-BAN-8F92A1-14050629-1042.tar.zst
 | پاک‌سازی | گزینه «حذف خودکار ابزارها هنگام خروج از Maintenance» (پیش‌فرض روشن در production) |
 | رویداد | `TOOLS_INSTALLED` · `TOOLS_REMOVED` |
 
+## Variant server
+
+همه متدهای Agent این مرحله مشترک‌اند؛ UI در `ban-console` (۵.۱۰):
+
+- Dashboard و System: همان داده‌ها به‌صورت متنی؛ `system.displays` → `NOT_SUPPORTED`؛ «وضعیت اتصال برق» از UPS (مرحله ۸).
+- Services: `/etc/ban/services.toml` جدا برای هر Variant؛ در `server`: PostgreSQL، Ban Agent، Ban Event، Ban Sync، Ban Update، Ban Console، NetworkManager، timesyncd، `nut` — بدون Adad، Launcher و CUPS. Restart یا Stop PostgreSQL در `server` هشدار «همه صندوق‌های متصل قطع می‌شوند» و تأیید تایپی دارد.
+- Logs & Audit: همان فیلترها و Export روی USB؛ بررسی زنجیره Audit.
+- Support Bundle: همان محتوا + خلاصه `pg_stat_activity` (آدرس و وضعیت Clientها، بدون متن query).
+- ابزارهای اختیاری: meta-package `ban-tech-tools-cli` (`nano` `htop` `postgresql-client` `tcpdump` `nmap`)؛ `xterm` و `pcmanfm` فقط در `ban-tech-tools` (`pos`). ترمینال = shell کاربر `maintenance` روی همان tty، بعد از احراز هویت مجدد؛ خروج از shell → بازگشت به `ban-console`.
+
+معیار server: همان چهار کار معیار پذیرش، از `ban-console` و فقط با صفحه‌کلید.
+
 ## تست‌های مرحله ۶
 
 داده هر کارت Dashboard با مقدار واقعی (`free`، `df`، `sensors`) مقایسه می‌شود · Restart CUPS از UI → وضعیت واقعی + رویداد Audit با actor درست · Technician نمی‌تواند Adad را Stop کند (`FORBIDDEN` + رویداد) · Export روی USB · دست‌کاری دستی یک ردیف audit.db → «بررسی زنجیره» خطا می‌دهد · ۱۰۰هزار رویداد → جدول روان می‌ماند.
@@ -404,6 +456,16 @@ Internet   ● Connected     Ban Cloud  — پیکربندی نشده
 | Maintenance | رفتار Adad هنگام Maintenance، حذف خودکار ابزارها، Reboot / Shutdown (با تأیید و رویداد) | `center.toml`، logind |
 | Optional Tools | مرحله ۶.۵ | — |
 | Cloud | placeholder | — |
+
+## Variant server
+
+- متدهای `network.*` و محافظ rollback مشترک‌اند؛ UI در `ban-console` با شمارش معکوس متنی («Keep this configuration? [Enter]»).
+- سرور معمولاً Ethernet است و گاهی چند NIC دارد؛ Wi-Fi پشتیبانی می‌شود ولی برای سرور توصیه نمی‌شود.
+- IP ثابت: Clientها به آدرس سرور وصل می‌شوند، پس wizard (مرحله ۱۲) IP ثابت را پیش‌فرض می‌کند؛ DHCP فقط با تأیید صریح «رزرو DHCP روی روتر انجام شده است». تغییر IP سرور بعد از راه‌اندازی = بروزرسانی آدرس روی Clientها (جفت‌سازی مجدد، مرحله ۱۲)؛ `ban-console` پیش از Apply همین هشدار را می‌دهد.
+- Settings در `server`: فقط Date & Time، Security (نمایش) و Maintenance (Reboot / Shutdown)؛ Display، Sound و touch ندارد.
+- نقش دستگاه همیشه Server است؛ `device.set_role` در `server` → `NOT_SUPPORTED`. Clientهای متصل (`pg_stat_activity`) در صفحه وضعیت `ban-console` نمایش داده می‌شوند.
+
+معیار server (M2): تنظیم Static IP فقط با صفحه‌کلید از `ban-console`؛ تنظیم اشتباه خودکار برمی‌گردد؛ Diagnostics مرحله خرابی را درست تشخیص می‌دهد.
 
 ## تست‌های مرحله ۷
 

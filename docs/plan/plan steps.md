@@ -6,6 +6,8 @@
 
 محور دوم (Ban Desk) فعلاً در اولویت نیست؛ فقط جای اتصال آن در معماری حفظ می‌شود.
 
+Ban OS در دو گونه (Variant) ساخته می‌شود: `pos` (صندوق فروش گرافیکی، محدوده اصلی این سند) و `server` (سرور فروشگاه بدون رابط گرافیکی). هر دو از یک pipeline، یک مخزن بسته و یک `OS_VERSION` ساخته می‌شوند و فقط در لایه رابط کاربری و چند بسته فرق دارند. خلاصه در بخش «دو Variant» پایین آمده است؛ در هر مرحله، کار Variant server زیر عنوان «Variant server» است.
+
 این فایل فهرست و نمای کلی است. جزئیات کامل هر مرحله (کانفیگ‌ها، schemaها، متدهای Agent، صفحه‌ها، رویدادها، تست‌ها و تطبیق قلم‌به‌قلم با p1 و p2) در سه فایل زیر است:
 
 | فایل | مراحل | فازها |
@@ -19,40 +21,69 @@
 | بخش | انتخاب |
 | --- | --- |
 | Base | Debian 13 (trixie) amd64، ساخت Image با `live-build` |
+| Variant | `pos`: صندوق گرافیکی (Kiosk + Adad + Ban Center) · `server`: سرور فروشگاه بدون UI گرافیکی (PostgreSQL + سرویس‌های Ban + `ban-console`)؛ یک pipeline، دو ISO، `OS_VERSION` مشترک |
 | محیط Build | ماشین مجازی/سرور Debian 13 (کد از Windows ویرایش می‌شود، Build و تست روی VM) |
-| گرافیک | Xorg + Openbox + LightDM (autologin کاربر `adad`) |
-| کاربران سیستم | `root` (قفل)، `adad` (POS، بدون shell)، `maintenance` (تکنسین) |
-| Adad POS | همان برنامه PyQt فعلی، بسته‌بندی‌شده به `.deb` در `/opt/adad` |
-| دیتابیس Adad | PostgreSQL 17 (نسخه Debian 13) — نقش دستگاه: Standalone / Server / Client |
+| گرافیک | Xorg + Openbox + LightDM (autologin کاربر `adad`)؛ فقط Variant `pos` |
+| کاربران سیستم | `root` (قفل)، `adad` (POS، بدون shell)، `maintenance` (تکنسین)؛ Variant `server` کاربر `adad` ندارد و `ban-console` دارد |
+| Adad POS | همان برنامه PyQt فعلی، بسته‌بندی‌شده به `.deb` در `/opt/adad`؛ فقط Variant `pos` (روی `server` فقط `adad-db`) |
+| دیتابیس Adad | PostgreSQL 17 (نسخه Debian 13) — نقش دستگاه: Standalone / Server / Client؛ Variant `server` همیشه نقش Server |
 | Ban Agent | daemon به زبان Rust (tokio، `zbus` برای D-Bus، `rusqlite`)، IPC روی Unix Domain Socket در `/run/ban/agent.sock`، JSON-RPC |
-| Ban Center | Tauri 2 (هسته Rust + WebKitGTK 4.1) با React + TypeScript + Vite، فارسی و RTL، فونت Vazirmatn |
-| قرارداد مشترک | crate `ban-api-types` بین Agent و هسته Tauri؛ typeهای TypeScript از همان تولید می‌شوند (`ts-rs` یا `specta`) |
+| Ban Center | Tauri 2 (هسته Rust + WebKitGTK 4.1) با React + TypeScript + Vite، فارسی و RTL، فونت Vazirmatn؛ فقط Variant `pos` |
+| Ban Console | Variant `server` و رابط Recovery هر دو Variant: Rust + `ratatui`، متنی و انگلیسی روی tty1، کلاینت همان socket Agent و `ban-api-types` |
+| قرارداد مشترک | crate `ban-api-types` بین Agent و هسته Tauri؛ typeهای TypeScript از همان تولید می‌شوند (`ts-rs` یا `specta`)؛ `ban-console` همان crate را مستقیم در Rust استفاده می‌کند |
 | Event / Audit | SQLite در `/var/lib/ban/audit.db` + Outbox + Hash chain؛ journald سر جای خود می‌ماند |
 | مسیرها | `/opt/adad` · `/opt/ban` · `/etc/ban` · `/var/lib/adad` · `/var/lib/ban` · `/var/log/adad` |
-| بسته‌بندی | همه اجزا `.deb`؛ بروزرسانی گام اول = مخزن apt امضاشده، گام دوم (بعد از 1.0) = A/B |
+| بسته‌بندی | همه اجزا `.deb`؛ بروزرسانی گام اول = مخزن apt امضاشده، گام دوم (بعد از 1.0) = A/B؛ هر Variant یک meta-package: `ban-os-pos` / `ban-os-server` |
 | نسخه‌ها | `OS_VERSION`، `APP_VERSION`، `AGENT_API_VERSION`، `HARDWARE_API_VERSION` مستقل از هم |
 | مرورگر | Chromium فقط از طریق wrapper قفل‌شده `ban-browser` |
-| ابزارهای تکنسین | اختیاری؛ در Image نیستند و از Ban Center قابل نصب‌اند |
-| تست | QEMU/KVM + OVMF روی VM، سپس سخت‌افزار واقعی (Intel N100، mini PC، touch POS) |
+| ابزارهای تکنسین | اختیاری؛ در Image نیستند و از Ban Center قابل نصب‌اند (در `server`: `ban-tech-tools-cli` از `ban-console`) |
+| تست | QEMU/KVM + OVMF روی VM، سپس سخت‌افزار واقعی (Intel N100، mini PC، touch POS)؛ هر دو Variant، `server` روی سخت‌افزار سرور و VM هم |
+
+دو Variant: pos و server
+
+| مورد | `pos` | `server` |
+| --- | --- | --- |
+| کاربرد | صندوق فروش (touch، چاپگر، کشو) | سرور فروشگاه (mini PC، سرور یا VM) که دیتابیس Adad را به صندوق‌های Client می‌دهد |
+| target پیش‌فرض | `graphical.target` | `multi-user.target` |
+| نقش دستگاه | Standalone / Server / Client | فقط Server |
+| رابط تکنسین | Ban Center (Tauri، فارسی، touch) | `ban-console` (متنی، انگلیسی، صفحه‌کلید) |
+| Adad | برنامه کامل + `adad-launcher` | بدون UI؛ فقط schema و migration دیتابیس (`adad-db`) |
+| سخت‌افزار | لایه کامل `ban-hardware` | فقط UPS (`nut`) |
+| meta-package | `ban-os-pos` | `ban-os-server` |
+| مشترک | پایه Debian، شبکه، PostgreSQL 17، Ban Agent، Ban Event، `ban-sync`، `ban-update`، Backup و Recovery، امنیت، نصب‌کننده، مخزن apt | همان |
+
+نقش Server روی صندوق `pos` هم باقی می‌ماند (فروشگاه کوچک بدون سرور جدا)؛ Variant `server` برای فروشگاهی است که سرور جدا دارد.
+
+چرا دو ISO و نه یک ISO با گزینه «بدون UI»: live-build بسته‌ها را هنگام Build نصب می‌کند؛ ISO مشترک یعنی Xorg، LightDM، Chromium و WebKitGTK روی سرور هم هستند (حجم، سطح حمله، آپدیت بی‌مورد). با دو ISO از یک pipeline، تفاوت فقط در package-listها و meta-package است و آپدیت هیچ‌وقت UI گرافیکی را روی سرور نمی‌آورد.
+
+Build: محور Variant مستقل از Profile است (شش ترکیب): `make build PROFILE=<profile> VARIANT=<pos|server>` → `ban-os-<ver>-<profile>-<variant>-amd64.iso`. تنظیمات هر Variant در `image/variants/<variant>/`.
+
+مدیریت سرور بدون UI: `ban-console` کلاینت همان socket Agent با همان `ban-api-types` است؛ Agent همچنان تنها جزء privileged می‌ماند و مرز امنیتی تغییر نمی‌کند. متن‌ها انگلیسی‌اند چون کنسول لینوکس شکل‌دهی و راست‌به‌چپ فارسی را ندارد. دسترسی در 1.0 فقط محلی است: صفحه‌کلید و مانیتور، کنسول VM یا IPMI serial-over-LAN. مدیریت از راه دور یعنی باز کردن Agent روی شبکه، و به بعد از 1.0 موکول می‌شود.
+
+موارد باز (با تیم Adad):
+
+- migration دیتابیس روی `server`: در `pos` این کار با `postinst` بسته `adad-pos` انجام می‌شود؛ روی `server` که Adad ندارد، بسته جدای `adad-db` (فقط schema و migration، بدون UI) از مخزن `adad-pos` پیشنهاد می‌شود.
+- اگر Adad غیر از PostgreSQL جزء سمت سرور دیگری دارد (سرویس، API، sync)، بسته `adad-server` فقط روی Variant server نصب می‌شود.
+- نوع License سرور در Activation (مرحله ۱۲).
 
 فهرست مراحل
 
-| مرحله | عنوان | فازهای پوشش‌داده‌شده |
-| --- | --- | --- |
-| ۰ | آماده‌سازی | پیش‌نیاز OS-01 |
-| ۱ | پایه سیستم‌عامل | OS-01 |
-| ۲ | Boot & Login | OS-02 |
-| ۳ | محیط POS | OS-03 |
-| ۴ | سرویس‌ها، Ban Agent و Ban Event | OS-04 |
-| ۵ | پایه Ban Center | BC-01 |
-| ۶ | System، Services، Logs | BC-02، BC-04، BC-06 |
-| ۷ | شبکه و تنظیمات | BC-03 |
-| ۸ | سخت‌افزار | OS-05، BC-05 |
-| ۹ | بروزرسانی | OS-06، BC-07 |
-| ۱۰ | Recovery و Backup | OS-07، BC-08 |
-| ۱۱ | امنیت و دسترسی | OS-08، BC-09 |
-| ۱۲ | نصب‌کننده و Provisioning | OS-09 |
-| ۱۳ | انتشار Production | OS-10، BC-12 |
+| مرحله | عنوان | فازهای پوشش‌داده‌شده | Variant server |
+| --- | --- | --- | --- |
+| ۰ | آماده‌سازی | پیش‌نیاز OS-01 | مشترک |
+| ۱ | پایه سیستم‌عامل | OS-01 | مشترک |
+| ۲ | Boot & Login | OS-02 | بوت متنی، بدون session گرافیکی |
+| ۳ | محیط POS | OS-03 | فقط PostgreSQL |
+| ۴ | سرویس‌ها، Ban Agent و Ban Event | OS-04 | مشترک |
+| ۵ | پایه Ban Center | BC-01 | `ban-console` به‌جای Ban Center |
+| ۶ | System، Services، Logs | BC-02، BC-04، BC-06 | در `ban-console` |
+| ۷ | شبکه و تنظیمات | BC-03 | در `ban-console`، بدون نمایشگر و touch |
+| ۸ | سخت‌افزار | OS-05، BC-05 | فقط UPS |
+| ۹ | بروزرسانی | OS-06، BC-07 | مشترک + ترتیب آپدیت Server و Client |
+| ۱۰ | Recovery و Backup | OS-07، BC-08 | مشترک |
+| ۱۱ | امنیت و دسترسی | OS-08، BC-09 | مشترک |
+| ۱۲ | نصب‌کننده و Provisioning | OS-09 | wizard متنی، نقش ثابت Server |
+| ۱۳ | انتشار Production | OS-10، BC-12 | مشترک، ماتریس تست برای هر دو |
 
 مرحله ۰ — آماده‌سازی
 هدف
@@ -79,9 +110,11 @@
 
 ۹. قراردادها: پیشوند سرویس‌ها `ban-*` و `adad-*`، SemVer، نام شاخه‌ها، قالب commit.
 
+۱۰. تعریف دو Variant در `image/variants/`: `pos` و `server`؛ محور `VARIANT` در `make build` مستقل از Profile؛ نام خروجی `ban-os-<ver>-<profile>-<variant>-amd64.iso`.
+
 معیار پذیرش
 
-`make build` روی VM بدون خطا اجرا می‌شود، حتی اگر خروجی هنوز یک Image خالی باشد.
+`make build` برای هر دو Variant روی VM بدون خطا اجرا می‌شود، حتی اگر خروجی هنوز یک Image خالی باشد.
 
 خروجی
 
@@ -110,13 +143,15 @@
 
 ۸. مستند `docs/architecture/build.md`.
 
+۹. تقسیم package-listها: مشترک در `image/packages/`، مخصوص هر Variant در `image/variants/<variant>/package-lists/` (گرافیک، چاپ، فونت و مرورگر فقط `pos`)؛ CI هر دو Variant را می‌سازد و تست بوت می‌کند.
+
 معیار پذیرش
 
-ISO در QEMU با UEFI بوت می‌شود، ساعت و locale درست است، PostgreSQL بالا می‌آید.
+هر دو ISO (`pos` و `server`) در QEMU با UEFI بوت می‌شوند، ساعت و locale درست است، PostgreSQL بالا می‌آید.
 
 خروجی
 
-یک Image اولیه که بوت می‌شود و CI آن را در هر commit می‌سازد و تست می‌کند.
+یک Image اولیه که بوت می‌شود و CI آن را در هر commit می‌سازد و تست می‌کند. خروجی این مرحله در عمل پایه Variant server است؛ دو Variant از مرحله ۲ از هم جدا می‌شوند.
 
 مرحله ۲ — Boot & Login (OS-02)
 هدف
@@ -144,6 +179,10 @@ Power on → لوگو → دسکتاپ خالی Openbox، بدون هیچ ورو
 خروجی
 
 دستگاه پس از روشن شدن خودکار وارد session گرافیکی کاربر `adad` می‌شود.
+
+Variant server
+
+بدون Xorg، LightDM و Plymouth؛ `default.target = multi-user.target`. GRUB با ورودی‌های «Ban OS» و «Recovery» و خروجی kernel روی `tty0` و `ttyS0` (برای IPMI serial-over-LAN). tty1 تا مرحله ۵ فقط صفحه وضعیت متنی (نسخه، hostname، IP) نشان می‌دهد؛ tty2 تا tty6 بسته‌اند. معیار: Power on → صفحه وضعیت روی tty1، بدون هیچ ورودی دستی.
 
 مرحله ۳ — محیط POS (OS-03)
 هدف
@@ -177,6 +216,10 @@ Power on → لوگو → دسکتاپ خالی Openbox، بدون هیچ ورو
 خروجی
 
 نقطه عطف M1: دستگاه پس از بوت مستقیماً وارد Adad می‌شود.
+
+Variant server
+
+فقط گام ۲ (PostgreSQL)، با tuning بر اساس RAM دستگاه در اولین بوت؛ Launcher، Kiosk، صفحه‌کلید لمسی و مرورگر ندارد. schema دیتابیس Adad با بسته `adad-db` ساخته و migrate می‌شود (بخش «دو Variant»). معیار: بوت headless، PostgreSQL سالم و وضعیت آن روی tty1.
 
 مرحله ۴ — سرویس‌ها، Ban Agent و Ban Event (OS-04)
 هدف
@@ -214,6 +257,10 @@ Power on → لوگو → دسکتاپ خالی Openbox، بدون هیچ ورو
 خروجی
 
 سرویس‌های Ban OS چرخه حیات مشخص دارند و قرارداد Agent برای Ban Center آماده است.
+
+Variant server
+
+این مرحله کاملاً مشترک است. Agent مقدار `OS_VARIANT` را از `/etc/ban/release` می‌خواند؛ متدهایی که در یک Variant معنی ندارند (نمایشگر، سخت‌افزار POS، session گرافیکی) خطای `NOT_SUPPORTED` برمی‌گردانند. کاربر `ban-console` هم در فهرست uidهای مجاز `SO_PEERCRED` است.
 
 مرحله ۵ — پایه Ban Center (BC-01)
 هدف
@@ -262,13 +309,15 @@ ban-center/
 
 ۹. سنجش RAM و زمان بازشدن روی ضعیف‌ترین سخت‌افزار هدف.
 
+۱۰. Variant server — `ban-console`: رابط متنی (Rust + `ratatui`) روی tty1 و به‌طور اختیاری `ttyS0`، کلاینت همان socket Agent با `ban-api-types`؛ صفحه وضعیت بدون PIN، منوی مدیریت پشت همان PIN و session؛ متن انگلیسی. صفحه‌هایش هم‌پای Ban Center در مراحل ۶ تا ۱۲ اضافه می‌شوند.
+
 معیار پذیرش
 
-Maintenance → PIN → Ban Center باز می‌شود و وضعیت اتصال به Agent را نشان می‌دهد؛ قطع Agent → پیام خطای واضح و اتصال مجدد خودکار؛ خروج → بازگشت به Adad.
+Maintenance → PIN → Ban Center باز می‌شود و وضعیت اتصال به Agent را نشان می‌دهد؛ قطع Agent → پیام خطای واضح و اتصال مجدد خودکار؛ خروج → بازگشت به Adad. در server: صفحه وضعیت روی tty1 → PIN → منوی `ban-console`؛ قطع Agent → پیام خطا و اتصال مجدد خودکار.
 
 خروجی
 
-اسکلت Ban Center روی Image، متصل به Ban Agent.
+اسکلت Ban Center روی Image، متصل به Ban Agent؛ اسکلت `ban-console` روی Variant server.
 
 مرحله ۶ — System، Services، Logs (BC-02، BC-04، BC-06)
 هدف
@@ -299,6 +348,10 @@ Restart یک سرویس از UI انجام و در Audit ثبت می‌شود؛ 
 
 تکنسین وضعیت دستگاه، سرویس‌ها و لاگ‌ها را بدون ترمینال می‌بیند.
 
+Variant server
+
+همین قابلیت‌ها در `ban-console`: Dashboard متنی، Services (بدون Adad و CUPS)، Logs و Events، Support Bundle روی USB. ابزارهای اختیاری = `ban-tech-tools-cli` (فقط ابزارهای متنی).
+
 مرحله ۷ — شبکه و تنظیمات (BC-03)
 هدف
 
@@ -323,6 +376,10 @@ Restart یک سرویس از UI انجام و در Audit ثبت می‌شود؛ 
 خروجی
 
 نقطه عطف M2: Ban Center برای کارهای روزمره تکنسین قابل استفاده است.
+
+Variant server
+
+Ethernet، IP، DNS و Diagnostics در `ban-console` با همان rollback خودکار؛ تاریخ و ساعت؛ بدون نمایشگر، touch و صدا. برای سرور IP ثابت لازم است، چون Clientها به این آدرس وصل می‌شوند (wizard مرحله ۱۲). معیار: تنظیم Static IP فقط با صفحه‌کلید از `ban-console`؛ IP اشتباه → بازگشت خودکار. نقطه عطف M2 برای server: `ban-console` برای کارهای روزمره تکنسین قابل استفاده است.
 
 مرحله ۸ — سخت‌افزار (OS-05، BC-05)
 هدف
@@ -357,6 +414,10 @@ Restart یک سرویس از UI انجام و در Audit ثبت می‌شود؛ 
 
 یک رابط استاندارد سخت‌افزار با نسخه مستقل (`HARDWARE_API_VERSION`).
 
+Variant server
+
+این مرحله را ندارد، جز پایش UPS با `nut`: رویداد قطع برق و خاموشی تمیز پیش از تمام شدن باتری (برای `pos` هم اختیاری).
+
 مرحله ۹ — بروزرسانی (OS-06، BC-07)
 هدف
 
@@ -386,6 +447,10 @@ Restart یک سرویس از UI انجام و در Audit ثبت می‌شود؛ 
 
 سیستم بروزرسانی قابل کنترل و قابل نظارت، آماده ارتقا به A/B.
 
+Variant server
+
+meta-package `ban-os-server` به‌جای `ban-os-pos`؛ Health check بدون Adad و چاپگر (PostgreSQL، اتصال TLS روی LAN، سرویس‌های Ban). پیش‌شرط نصب: پنجره زمانی و نبود تراکنش باز از Clientها، چون restart PostgreSQL همه صندوق‌ها را قطع می‌کند. ترتیب در فروشگاه چندصندوقه: اول Server (schema با `adad-db`)، بعد Clientها.
+
 مرحله ۱۰ — Recovery و Backup (OS-07، BC-08)
 هدف
 
@@ -414,6 +479,10 @@ Restart یک سرویس از UI انجام و در Audit ثبت می‌شود؛ 
 خروجی
 
 نقطه عطف M3: دستگاه آماده نصب آزمایشی در یک فروشگاه واقعی.
+
+Variant server
+
+همان پارتیشن‌بندی، Backup و Recovery؛ روی سرور Backup شبانه اجباری است و هشدار از ۲۴ ساعت (به‌جای ۴۸) شروع می‌شود، چون تنها نسخه داده فروشگاه آنجاست. رابط Recovery هر دو Variant همان `ban-console` در حالت recovery است (بدون X). آزمایش میدانی سرور به جفت‌سازی مرحله ۱۲ نیاز دارد و در Pilot مرحله ۱۳ انجام می‌شود.
 
 مرحله ۱۱ — امنیت و دسترسی (OS-08، BC-09)
 هدف
@@ -446,6 +515,10 @@ Restart یک سرویس از UI انجام و در Audit ثبت می‌شود؛ 
 
 Ban OS با مدل دسترسی کنترل‌شده. (Secure Boot و TPM بعد از 1.0.)
 
+Variant server
+
+همان مدل؛ firewall همیشه قاعده نقش Server را دارد (5432 فقط از subnet فروشگاه)؛ SSH در production مثل `pos` نصب نیست؛ فهرست unitهای مجاز برای هر Variant جداست.
+
 مرحله ۱۲ — نصب‌کننده و Provisioning (OS-09)
 هدف
 
@@ -473,6 +546,10 @@ Ban OS با مدل دسترسی کنترل‌شده. (Secure Boot و TPM بعد 
 
 فرآیند استاندارد تولید Image و نصب روی دستگاه‌های مختلف.
 
+Variant server
+
+همان نصب‌کننده با ISO خودش؛ wizard در `ban-console` بدون صفحه‌های نمایشگر، touch و سخت‌افزار و با نقش ثابت Server؛ کد جفت‌سازی به‌صورت QR متنی روی کنسول. خروجی اضافه: `.qcow2` برای نصب به‌صورت VM. معیار: نصب server (فیزیکی و VM) + دو Client `pos` در یک LAN و فروش هم‌زمان.
+
 مرحله ۱۳ — انتشار Production (OS-10، BC-12)
 هدف
 
@@ -494,6 +571,10 @@ Ban OS با مدل دسترسی کنترل‌شده. (Secure Boot و TPM بعد 
 
 نقطه عطف M4: Ban OS 1.0.0 + Ban Center 1.0.0.
 
+Variant server
+
+ماتریس تست برای هر دو Variant؛ تست‌های مخصوص server: آپدیت و restart سرور حین فروش Clientها، قطع برق سرور، soak با چند Client هم‌زمان. هر دو ISO با یک `OS_VERSION` منتشر می‌شوند.
+
 وابستگی مراحل
 
 ```
@@ -512,14 +593,16 @@ Ban OS با مدل دسترسی کنترل‌شده. (Secure Boot و TPM بعد 
                ۱۰ → ۱۱ → ۱۲ → ۱۳ ◄┘
 ```
 
+Variant server وابستگی‌ها را تغییر نمی‌دهد: `ban-console` در مرحله ۵ کنار Ban Center شروع می‌شود و در هر مرحله بعد صفحه‌های همان مرحله را می‌گیرد.
+
 نقاط عطف
 
-| نقطه عطف | پایان مرحله | نتیجه |
-| --- | --- | --- |
-| M1 | ۳ | بوت مستقیم به Adad |
-| M2 | ۷ | Ban Center قابل استفاده برای تکنسین |
-| M3 | ۱۰ | دستگاه آزمایشی در فروشگاه واقعی |
-| M4 | ۱۳ | نسخه Production |
+| نقطه عطف | پایان مرحله | نتیجه | Variant server |
+| --- | --- | --- | --- |
+| M1 | ۳ | بوت مستقیم به Adad | بوت headless، PostgreSQL سالم، وضعیت روی tty1 |
+| M2 | ۷ | Ban Center قابل استفاده برای تکنسین | `ban-console` برای کارهای روزمره |
+| M3 | ۱۰ | دستگاه آزمایشی در فروشگاه واقعی | — (سرور در فروشگاه به جفت‌سازی مرحله ۱۲ نیاز دارد؛ در Pilot مرحله ۱۳) |
+| M4 | ۱۳ | نسخه Production | ISO و img هر دو Variant |
 
 بعد از 1.0
 
@@ -534,6 +617,10 @@ BC-11 — Fleet Management
 A/B Update و root فقط‌خواندنی کامل
 
 Secure Boot و TPM
+
+مدیریت Variant server از راه دور: Agent روی شبکه با mTLS، از Ban Center یک صندوق یا از Ban Cloud
+
+Variant server: RAID نرم‌افزاری (mdadm)، WAL archiving و PITR، replica دوم
 
 اصل اجرایی
 
