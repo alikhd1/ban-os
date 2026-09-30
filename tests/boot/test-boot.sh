@@ -32,6 +32,7 @@ fi
 
 SERIAL_LOG="$(mktemp)"
 QEMU_PID=""
+# shellcheck disable=SC2317  # invoked through the EXIT trap
 cleanup() {
   if [[ -n "${QEMU_PID}" ]]; then
     kill "${QEMU_PID}" 2> /dev/null || true
