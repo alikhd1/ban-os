@@ -99,6 +99,10 @@ setup_pnpm() {
 
 setup_rust() {
   export PATH="${HOME}/.cargo/bin:${PATH}"
+  # Debian 13 mounts /tmp as a RAM-backed tmpfs (half of RAM). `cargo install`
+  # builds there by default and tauri-cli needs more than that, so build on disk.
+  local target_dir="${HOME}/.cache/ban-os/cargo-install"
+  mkdir -p "${target_dir}"
   if command -v rustup > /dev/null; then
     info "Updating Rust stable"
     rustup toolchain install stable
@@ -113,14 +117,14 @@ setup_rust() {
     info "cargo-deb already installed"
   else
     info "Installing cargo-deb"
-    cargo install --locked cargo-deb
+    cargo install --locked --target-dir "${target_dir}" cargo-deb
   fi
 
   if cargo tauri --version > /dev/null 2>&1; then
     info "tauri-cli already installed"
   else
     info "Installing tauri-cli (this takes a while)"
-    cargo install --locked tauri-cli
+    cargo install --locked --target-dir "${target_dir}" tauri-cli
   fi
 }
 
