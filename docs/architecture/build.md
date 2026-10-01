@@ -57,6 +57,28 @@ apt-cacher-ng is a cache, not a mirror:
 - For each release, keep a dated copy of `/var/cache/apt-cacher-ng` so an old image can be
   rebuilt (step 0.3).
 
+### Testing an offline build (Stage 0 acceptance)
+
+Deleting the default route is not enough: the DHCP client adds it back on lease renewal.
+Block outgoing traffic with nftables instead (loopback, which apt-cacher-ng uses, and open
+connections such as the SSH session stay allowed):
+
+```bash
+sudo nft add table inet offline
+sudo nft add chain inet offline out '{ type filter hook output priority 0; }'
+sudo nft add rule inet offline out oif lo accept
+sudo nft add rule inet offline out ct state established accept
+sudo nft add rule inet offline out drop
+curl -sI --max-time 5 http://deb.debian.org || echo "offline OK"
+```
+
+With `Offlinemode: 1` set, build each variant. Afterwards remove the table
+(`sudo nft delete table inet offline`) and the `Offlinemode` line.
+
+If apt reports `503` for `InRelease` files, apt-cacher-ng tried to go upstream: `Offlinemode`
+is not set or apt-cacher-ng was not restarted. apt then falls back to stale indexes and fails
+later on a package version that was never cached.
+
 ## 4. Build
 
 ```bash
