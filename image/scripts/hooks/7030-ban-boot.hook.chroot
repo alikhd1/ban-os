@@ -57,4 +57,17 @@ cat > /etc/issue << ISSUE
 ISSUE
 cp /etc/issue /etc/issue.net
 
+# Message after a console or SSH login: Ban OS instead of Debian's licence
+# text and the uname line. The uname script is diverted, not deleted, so a
+# base-files update does not bring it back; run-parts skips the ".distrib"
+# name.
+cat > /etc/motd << MOTD
+
+  Ban OS ${OS_VERSION} (${OS_VARIANT}) - technician console
+
+MOTD
+if [[ -e /etc/update-motd.d/10-uname ]]; then
+  dpkg-divert --local --rename --add /etc/update-motd.d/10-uname
+fi
+
 echo "ban: boot sequence configured (default ${BAN_DEFAULT_TARGET})"
