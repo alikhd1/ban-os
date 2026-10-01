@@ -164,14 +164,18 @@ lb config noauto \
   --archive-areas "main contrib non-free non-free-firmware" \
   --mirror-bootstrap http://127.0.0.1:3142/deb.debian.org/debian \
   --mirror-chroot    http://127.0.0.1:3142/deb.debian.org/debian \
+  --mirror-chroot-security http://127.0.0.1:3142/security.debian.org/debian-security \
   --binary-images iso-hybrid --bootloaders grub-efi \
   --debian-installer none \
-  --apt-recommends false --firmware-chroot true \
+  --apt-recommends false --firmware-chroot false \
   --iso-application "Ban OS" --iso-volume "BANOS" \
   "${@}"
 ```
 
 ساختار (full-chat §33): `config/package-lists/` · `includes.chroot/` · `includes.binary/` · `hooks/` · `bootloaders/`. `--apt-recommends false` برای سبک‌ماندن Image حیاتی است.
+
+- `--mirror-chroot-security` هم از mirror محلی؛ وگرنه به‌روزرسانی‌های امنیتی مستقیم از اینترنت گرفته می‌شوند و Build آفلاین نیست.
+- `--firmware-chroot false`: حالت `true` هر بسته‌ای در archive را که firmware دارد نصب می‌کند، از جمله `firmware-b43-installer` و `firmware-b43legacy-installer` (contrib) که firmware را هنگام نصب از اینترنت دانلود می‌کنند ← Build آفلاین شکست می‌خورد؛ به‌علاوه بسته‌های بی‌ربط (مثل `indi-dsi`، درایور دوربین نجومی) و ISO حدود ۸۳۵MB. firmware فقط از `firmware.list.chroot` (گام ۱.۲) نصب می‌شود.
 
 ## گام ۱.۲ — package-listها (`image/packages/`)
 

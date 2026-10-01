@@ -17,6 +17,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). This file tr
   WebKitGTK, cargo-deb, tauri-cli, apt-cacher-ng).
 - `Makefile` targets `debs`, `build`, `run-vm`, `test-boot`, `clean`; minimal live-build
   configuration using the local apt-cacher-ng mirror.
+- live-build uses `--firmware-chroot false` so the build works offline; firmware comes only
+  from the explicit `firmware.list.chroot` (Stage 1). Plan step 1.1 updated.
 - Image profiles `development`, `staging`, `production`.
 - Image variants `pos` (graphical POS terminal, default) and `server` (headless store server)
   in `image/variants/`: `make build VARIANT=<pos|server>`, output

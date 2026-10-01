@@ -5,6 +5,11 @@
 # All build-time mirrors point at the local apt-cacher-ng (step 0.3) so the
 # build never talks to the internet directly. BAN_APT_CACHE can point at a
 # full local mirror instead.
+#
+# --firmware-chroot false: "true" installs every package in the archive that
+# ships firmware, including firmware-b43*-installer (contrib), which download
+# their firmware from the internet in postinst and break the offline build.
+# Firmware comes only from image/packages/firmware.list.chroot (step 1.2).
 
 set -e
 
@@ -18,6 +23,6 @@ lb config noauto \
   --mirror-chroot-security "${BAN_APT_CACHE}/security.debian.org/debian-security" \
   --binary-images iso-hybrid --bootloaders grub-efi \
   --debian-installer none \
-  --apt-recommends false --firmware-chroot true \
+  --apt-recommends false --firmware-chroot false \
   --iso-application "Ban OS" --iso-volume "BANOS" \
   "${@}"
