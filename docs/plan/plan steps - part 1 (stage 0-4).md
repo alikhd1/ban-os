@@ -241,6 +241,7 @@ lb config noauto \
 ## گام ۱.۷ — تست
 
 - `make run-vm`: `qemu-system-x86_64 -enable-kvm -m 4096 -smp 2 -bios /usr/share/OVMF/OVMF_CODE.fd -cdrom out/*.iso -drive file=out/disk-<variant>.qcow2,if=virtio -serial stdio -vga virtio`
+- firmware در QEMU به‌صورت دو درایو pflash: `-drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd` و یک کپی قابل‌نوشتن از `OVMF_VARS_4M.fd`؛ Debian 13 فایل `OVMF_CODE.fd` را ندارد و `-bios` نسخه ۴MB را بار نمی‌کند.
 - `make test-boot`: بوت headless؛ سرویس `ban-boot-ok.service` بعد از `multi-user.target` رشته `BAN-BOOT-OK <version>` را روی `ttyS0` می‌نویسد؛ اسکریپت تا ۱۲۰ ثانیه منتظر می‌ماند.
 - CI (self-hosted runner روی همان VM): هر push → `make debs` و سپس `make build test-boot` برای هر دو Variant (`VARIANT=pos` و `VARIANT=server`).
 - فهرست سخت‌افزار تست (full-chat §32): Intel N100، AMD، mini PC، touch POS — جدول در `docs/operations/test-hardware.md`.

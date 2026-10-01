@@ -19,9 +19,13 @@ DISK ?= $(OUT)/disk-$(VARIANT).qcow2
 # this target in their own stages.
 DEB_CRATES := ban-agent ban-event
 
-# The plan uses /usr/share/OVMF/OVMF_CODE.fd; fall back to the other names the
-# Debian ovmf package has used.
-OVMF_CODE ?= $(firstword $(wildcard /usr/share/OVMF/OVMF_CODE.fd /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/ovmf/OVMF.fd))
+# UEFI firmware. Debian 13 ships only the split 4 MB build: read-only code plus
+# a template for the UEFI variable store. QEMU needs both as pflash drives
+# (-bios cannot load it). Older Debian releases name them without _4M.
+OVMF_CODE ?= $(firstword $(wildcard /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd))
+OVMF_VARS_TEMPLATE ?= $(subst OVMF_CODE,OVMF_VARS,$(OVMF_CODE))
+# Writable copy of the variable store, one per variant like the disk.
+OVMF_VARS ?= $(OUT)/ovmf-vars-$(VARIANT).fd
 KVM       := $(if $(wildcard /dev/kvm),-enable-kvm,)
 # Extra QEMU arguments for run-vm, e.g. QEMU_EXTRA="-display vnc=:1" over SSH.
 QEMU_EXTRA ?=
@@ -57,13 +61,19 @@ $(DISK):
 	mkdir -p $(OUT)
 	qemu-img create -f qcow2 $@ 32G
 
+$(OVMF_VARS):
+	@test -f "$(OVMF_VARS_TEMPLATE)" || { echo "OVMF firmware not found; install the ovmf package" >&2; exit 1; }
+	mkdir -p $(OUT)
+	cp $(OVMF_VARS_TEMPLATE) $@
+
 # "-vga none -device virtio-vga,xres=..,yres=.." is "-vga virtio" with the
 # 1024x768 POS screen size.
-run-vm: $(DISK)
+run-vm: $(DISK) $(OVMF_VARS)
 	@test -f "$(ISO)" || { echo "$(ISO) not found; run: make build PROFILE=$(PROFILE) VARIANT=$(VARIANT)" >&2; exit 1; }
 	@test -n "$(OVMF_CODE)" || { echo "OVMF firmware not found; install the ovmf package" >&2; exit 1; }
 	qemu-system-x86_64 $(KVM) -m $(VM_MEM) -smp 2 \
-		-bios $(OVMF_CODE) \
+		-drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE) \
+		-drive if=pflash,format=raw,file=$(OVMF_VARS) \
 		-cdrom $(ISO) \
 		-drive file=$(DISK),if=virtio \
 		-serial stdio \
@@ -73,7 +83,7 @@ run-vm: $(DISK)
 test-boot:
 	@test -f "$(ISO)" || { echo "$(ISO) not found; run: make build PROFILE=$(PROFILE) VARIANT=$(VARIANT)" >&2; exit 1; }
 	@test -n "$(OVMF_CODE)" || { echo "OVMF firmware not found; install the ovmf package" >&2; exit 1; }
-	BOOT_LOG=$(OUT)/boot-$(PROFILE)-$(VARIANT).log tests/boot/test-boot.sh $(ISO) $(OVMF_CODE)
+	BOOT_LOG=$(OUT)/boot-$(PROFILE)-$(VARIANT).log tests/boot/test-boot.sh $(ISO) $(OVMF_CODE) $(OVMF_VARS_TEMPLATE)
 
 clean:
 	cd image/live-build && $(SUDO) lb clean --purge

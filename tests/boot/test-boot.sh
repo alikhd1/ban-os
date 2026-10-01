@@ -4,7 +4,10 @@
 # The marker is written by ban-boot-ok.service after multi-user.target.
 # Normally called through `make test-boot`.
 #
-# Usage: tests/boot/test-boot.sh <iso> <ovmf-code.fd>
+# Usage: tests/boot/test-boot.sh <iso> <ovmf-code.fd> <ovmf-vars-template.fd>
+#
+# The UEFI variable store is a fresh copy of the template for every run, so
+# each test boots from the same firmware state.
 #
 # Environment:
 #   BOOT_TIMEOUT  seconds to wait for the marker, default 120 (raise it
@@ -16,13 +19,14 @@ set -euo pipefail
 
 ISO="${1:-}"
 OVMF_CODE="${2:-}"
+OVMF_VARS_TEMPLATE="${3:-}"
 BOOT_TIMEOUT="${BOOT_TIMEOUT:-120}"
 VM_MEM="${VM_MEM:-4096}"
 # The marker line itself, not systemd's "Starting ban-boot-ok.service" line.
 MARKER_RE='^BAN-BOOT-OK [0-9]'
 
-[[ -f "${ISO}" && -f "${OVMF_CODE}" ]] || {
-  echo "usage: $0 <iso> <ovmf-code.fd>" >&2
+[[ -f "${ISO}" && -f "${OVMF_CODE}" && -f "${OVMF_VARS_TEMPLATE}" ]] || {
+  echo "usage: $0 <iso> <ovmf-code.fd> <ovmf-vars-template.fd>" >&2
   exit 2
 }
 
@@ -34,6 +38,8 @@ else
 fi
 
 SERIAL_LOG="$(mktemp)"
+OVMF_VARS="$(mktemp)"
+cp "${OVMF_VARS_TEMPLATE}" "${OVMF_VARS}"
 QEMU_PID=""
 # shellcheck disable=SC2317,SC2329  # invoked through the EXIT trap
 cleanup() {
@@ -43,12 +49,13 @@ cleanup() {
   if [[ -n "${BOOT_LOG:-}" ]]; then
     cp "${SERIAL_LOG}" "${BOOT_LOG}" || true
   fi
-  rm -f "${SERIAL_LOG}"
+  rm -f "${SERIAL_LOG}" "${OVMF_VARS}"
 }
 trap cleanup EXIT
 
 qemu-system-x86_64 "${KVM[@]}" -m "${VM_MEM}" -smp 2 \
-  -bios "${OVMF_CODE}" \
+  -drive "if=pflash,format=raw,readonly=on,file=${OVMF_CODE}" \
+  -drive "if=pflash,format=raw,file=${OVMF_VARS}" \
   -cdrom "${ISO}" \
   -serial "file:${SERIAL_LOG}" -display none -no-reboot &
 QEMU_PID=$!

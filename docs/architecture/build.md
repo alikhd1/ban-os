@@ -199,7 +199,11 @@ One-time setup on the build VM:
 ## Troubleshooting
 
 - `apt mirror ... is not reachable`: `systemctl status apt-cacher-ng`.
-- `OVMF firmware not found`: check `ls /usr/share/OVMF/` and pass `OVMF_CODE=<file>` to make.
+- `OVMF firmware not found`: check `ls /usr/share/OVMF/` and pass `OVMF_CODE=<file>` (and
+  `OVMF_VARS_TEMPLATE=<file>`) to make. QEMU gets the firmware as two pflash drives, read-only
+  code and a writable copy of the UEFI variable store (`out/ovmf-vars-<variant>.fd` for
+  `run-vm`, a fresh temporary copy for every `test-boot`); `-bios` cannot load the split
+  4 MB build that Debian 13 ships.
 - Build fails at a download while offline: the package is not in the cache yet; build once online.
 - Scripts fail with `\r: command not found`: the repo was checked out with CRLF. Clone on the VM;
   `.gitattributes` forces LF.

@@ -31,6 +31,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). This file tr
 - GRUB boots the default entry after 5 s (live-build's menu waited forever); kernel and systemd
   output also on the serial port. Both until Stage 2.
 - PostgreSQL TLS off until Stage 3 (live-build removes the snakeoil certificate).
+- QEMU loads the UEFI firmware as pflash drives (`OVMF_CODE_4M.fd` read-only plus a copy of
+  `OVMF_VARS_4M.fd`); the plan's `-bios OVMF_CODE.fd` does not exist on Debian 13.
 - `make test-boot` matches only the marker line, keeps the serial log in `out/`, and takes
   `BOOT_TIMEOUT` and `VM_MEM`; `make run-vm` takes `VM_MEM`.
 
