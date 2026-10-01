@@ -17,7 +17,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). This file tr
   `server` also on the serial port. `/etc/default/grub.d/ban.cfg` for the installed system.
 - Boot sequence: `graphical.target` (`pos`) / `multi-user.target` (`server`), tty2..6 closed,
   `apt-daily*`, `ModemManager`, `e2scrub_all` masked, `NetworkManager-wait-online` disabled,
-  `/etc/issue` with version, hostname and IP.
+  `/etc/issue` with version, hostname and IP, `/etc/motd` without the Debian text and uname line.
 - Users of step 2.4: `adad` (`pos`), `maintenance`, `ban-agent`, `ban-console` (`server`), group
   `ban-ipc`.
 - `pos` graphical session: `kiosk.list.chroot`, LightDM autologin of `adad` into the `ban`

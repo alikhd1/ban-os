@@ -15,7 +15,7 @@ Build scripts and live-build hooks.
 | --- | --- | --- |
 | `7000-ban-system.hook.chroot` | 1 | locales, timezone, root lock, Ban directories, PostgreSQL TLS off, enable units |
 | `7010-ban-users.hook.chroot` | 1, 2 | users and groups of step 2.4 per variant and profile |
-| `7030-ban-boot.hook.chroot` | 2 | default target, closed tty2..6, masked timers, no wait-online, `/etc/default/grub.d/ban.cfg`, `/etc/issue` |
+| `7030-ban-boot.hook.chroot` | 2 | default target, closed tty2..6, masked timers, no wait-online, `/etc/default/grub.d/ban.cfg`, `/etc/issue`, `/etc/motd` |
 | `7040-ban-kiosk.hook.chroot` | 2 | `pos`: LightDM enabled, Plymouth theme `ban` in the initramfs |
 | `7100-ban-grub.hook.binary` | 2 | the ISO's GRUB menu: hidden, 1 s, password, Ban OS entries from `variant.env` |
 
