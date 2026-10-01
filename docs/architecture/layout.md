@@ -9,18 +9,30 @@ OS update untouched.
 | Path | Content | Created by |
 | --- | --- | --- |
 | `/opt/adad/` | `bin/ lib/ plugins/ resources/` of the Adad application (Stage 3) | image hook |
-| `/opt/ban/` | `agent/ center/ hardware/ updater/ browser/` and `boot/` (boot helper scripts) | image hook |
+| `/opt/ban/` | `agent/ center/ hardware/ updater/ browser/`, `boot/` (boot helpers), `kiosk/` (`pos`: `ban-session`, `apply-display`, `ban-bootfail`) | image hook, `files.list` |
 | `/etc/adad/` | `config.toml` (Stage 3) | image hook |
-| `/etc/ban/` | `release`; `*.toml` settings (Stage 4, step 4.7) | image hook, build |
+| `/etc/ban/` | `release`; `display.toml` and `openbox/rc.xml` (`pos`, Stage 2); `*.toml` settings (Stage 4, step 4.7) | image hook, build |
 | `/var/lib/adad/` | `sync/ cache/ backups/` | `tmpfiles.d/ban.conf` at boot |
-| `/var/lib/ban/` | `audit.db`, `metrics.db` (Stage 4), `backups/ outbox/` | `tmpfiles.d/ban.conf` at boot |
+| `/var/lib/ban/` | `audit.db`, `metrics.db` (Stage 4), `backups/ outbox/`; `bootcount`, `last-shutdown` (Stage 2) | `tmpfiles.d/ban.conf` at boot |
 | `/var/lib/postgresql/` | PostgreSQL cluster `17/main` | `postgresql-17` package |
 | `/var/log/adad/` | Adad log files, rotated by `/etc/logrotate.d/adad` | `tmpfiles.d/ban.conf` at boot |
-| `/run/ban/` | `agent.sock`, `event.sock` (Stage 4); `clock-invalid` flag (Stage 1) | `tmpfiles.d/ban.conf` at boot |
+| `/run/ban/` | `agent.sock`, `event.sock` (Stage 4); `clock-invalid` (Stage 1) and `first-boot` (Stage 2) flags | `tmpfiles.d/ban.conf` at boot |
 
 The image hook is `image/scripts/hooks/7000-ban-system.hook.chroot`. Directories under `/var` and
 `/run` come from `tmpfiles.d` so they are recreated on an empty data partition. All are owned by
 root for now; the service users (`adad`, `ban-agent`, ...) take them over in Stages 2 to 4.
+
+## Users (Stage 2, step 2.4)
+
+| User | Variant | Shell | Groups | Login |
+| --- | --- | --- | --- | --- |
+| `root` | all | | | locked |
+| `adad` | `pos` | `/usr/sbin/nologin` | `ban-ipc lp dialout input video` | none; LightDM autologin into the Ban session |
+| `maintenance` | all | `/bin/bash` | `ban-ipc` (+ `sudo` on development) | development: known password; staging/production: locked until the PIN flow (Stage 3) and the sudo whitelist (Stage 11) |
+| `ban-agent` | all | `/usr/sbin/nologin` | own group | system user for Ban Agent (Stage 4) |
+| `ban-console` | `server` | `/usr/sbin/nologin` | `ban-ipc` | system user for `ban-console` (Stage 5) |
+
+`ban-ipc` is the group that may talk to the Ban sockets in `/run/ban/` (Stage 4).
 
 ## `/etc/ban/release`
 

@@ -1,0 +1,13 @@
+# Plan part 1, step 2.7: count consecutive boots until one succeeds.
+[Unit]
+Description=Ban OS boot counter
+DefaultDependencies=no
+After=local-fs.target systemd-tmpfiles-setup.service
+Before=sysinit.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/ban/boot/ban-bootcount
+
+[Install]
+WantedBy=sysinit.target

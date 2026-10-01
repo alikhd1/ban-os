@@ -1,0 +1,18 @@
+# Plan part 1, step 2.7: error screen on tty1 when the graphical session
+# cannot start. Triggered by OnFailure= of lightdm.service (pos variant).
+[Unit]
+Description=Ban OS graphics failure screen
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+
+[Service]
+Type=simple
+ExecStart=/opt/ban/kiosk/ban-bootfail
+StandardInput=tty-force
+StandardOutput=tty
+StandardError=journal
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+Restart=always
+RestartSec=1

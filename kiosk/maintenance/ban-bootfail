@@ -1,0 +1,42 @@
+#!/bin/bash
+# Graphics failure screen of the pos variant (plan part 1, step 2.7). Started
+# by ban-bootfail.service when LightDM failed 3 times within 60 s. Runs on
+# tty1 and records GRAPHICS_FAILED.
+#
+# English only: the Linux console cannot shape or reorder Persian script.
+# Maintenance: Stage 2 offers the console login of the maintenance user
+# (development images only have a password); Stage 3 puts the technician PIN
+# in front of it.
+
+set -euo pipefail
+
+CODE="E-GFX-01"
+
+logger -t ban-bootfail -p user.err \
+  "GRAPHICS_FAILED code=${CODE} reason=display-manager-start-limit"
+
+chvt 1 || true
+
+while true; do
+  printf '\033[2J\033[H'
+  # shellcheck source=/dev/null
+  source /etc/ban/release
+  cat << MSG
+
+  Ban OS ${OS_VERSION}
+
+  The screen could not be started.
+
+  Error code: ${CODE} (graphics failed)
+  Please restart the device. If this happens again, contact support
+  and tell them the error code.
+
+  Press M for maintenance.
+
+MSG
+  read -r -s -n 1 key || sleep 5
+  if [[ "${key:-}" == [Mm] ]]; then
+    printf '\033[2J\033[H'
+    login maintenance || true
+  fi
+done

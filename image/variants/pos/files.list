@@ -1,0 +1,16 @@
+# Repository files installed into the pos image, "<source> <destination>".
+# Sources are relative to the repository root; the executable bit comes from
+# git. Read by image/scripts/build-image.sh after the configuration/ folders.
+kiosk/session/ban-session            /opt/ban/kiosk/ban-session
+kiosk/session/ban.desktop            /usr/share/xsessions/ban.desktop
+kiosk/session/lightdm/50-ban.conf    /etc/lightdm/lightdm.conf.d/50-ban.conf
+kiosk/session/openbox/rc.xml         /etc/ban/openbox/rc.xml
+kiosk/display/apply-display          /opt/ban/kiosk/apply-display
+kiosk/display/display.toml           /etc/ban/display.toml
+kiosk/display/plymouth/ban/ban.plymouth     /usr/share/plymouth/themes/ban/ban.plymouth
+kiosk/display/plymouth/ban/ban.script       /usr/share/plymouth/themes/ban/ban.script
+kiosk/display/plymouth/ban/logo.png         /usr/share/plymouth/themes/ban/logo.png
+kiosk/display/plymouth/ban/powered-by.png   /usr/share/plymouth/themes/ban/powered-by.png
+kiosk/display/plymouth/ban/progress-bar.png /usr/share/plymouth/themes/ban/progress-bar.png
+kiosk/display/plymouth/ban/progress-box.png /usr/share/plymouth/themes/ban/progress-box.png
+kiosk/maintenance/ban-bootfail       /opt/ban/kiosk/ban-bootfail

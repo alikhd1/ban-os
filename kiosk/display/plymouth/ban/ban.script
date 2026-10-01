@@ -1,0 +1,45 @@
+// Ban OS boot splash (plan part 1, step 2.6): logo, progress bar and
+// "Powered by Adad" on #101418, the same colour ban-session gives the X root
+// window, so Plymouth -> X has no visible jump.
+
+Window.SetBackgroundTopColor(0.063, 0.078, 0.094);
+Window.SetBackgroundBottomColor(0.063, 0.078, 0.094);
+
+screen_x = Window.GetX();
+screen_y = Window.GetY();
+screen_w = Window.GetWidth();
+screen_h = Window.GetHeight();
+
+logo.image = Image("logo.png");
+logo.sprite = Sprite(logo.image);
+logo.x = screen_x + screen_w / 2 - logo.image.GetWidth() / 2;
+logo.y = screen_y + screen_h / 2 - logo.image.GetHeight() / 2 - 40;
+logo.sprite.SetPosition(logo.x, logo.y, 10);
+
+bar.width = screen_w * 0.3;
+bar.height = 4;
+bar.x = screen_x + screen_w / 2 - bar.width / 2;
+bar.y = logo.y + logo.image.GetHeight() + 50;
+
+box.image = Image("progress-box.png").Scale(bar.width, bar.height);
+box.sprite = Sprite(box.image);
+box.sprite.SetPosition(bar.x, bar.y, 10);
+
+bar.original = Image("progress-bar.png");
+bar.sprite = Sprite();
+bar.sprite.SetPosition(bar.x, bar.y, 11);
+
+powered.image = Image("powered-by.png");
+powered.sprite = Sprite(powered.image);
+powered.sprite.SetPosition(screen_x + screen_w / 2 - powered.image.GetWidth() / 2,
+                           screen_y + screen_h - powered.image.GetHeight() - 40, 10);
+
+fun progress_callback(duration, progress) {
+    width = Math.Int(bar.width * progress);
+    if (width < 1) width = 1;
+    bar.sprite.SetImage(bar.original.Scale(width, bar.height));
+}
+Plymouth.SetBootProgressFunction(progress_callback);
+
+// No text messages: Image.Text needs Plymouth's pango label plugin, which is
+// not installed (it would bloat the initramfs).

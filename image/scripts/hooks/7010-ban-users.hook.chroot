@@ -1,0 +1,49 @@
+#!/bin/bash
+# Users and groups (plan part 1, step 2.4 and "Variant server").
+#
+# | user        | variant | login                                               |
+# | root        | all     | locked (7000-ban-system)                            |
+# | adad        | pos     | none (nologin); owns the graphical session          |
+# | maintenance | all     | development: bash, full sudo, known password;       |
+# |             |         | staging/production: no password, no sudo yet        |
+# |             |         | (sudo whitelist in Stage 11)                        |
+# | ban-agent   | all     | system user, runs Ban Agent (Stage 4)               |
+# | ban-console | server  | system user, runs ban-console (Stage 5)             |
+
+set -euo pipefail
+
+# shellcheck source=/dev/null
+source /live-build/config/ban/build.env
+
+have_user() { id "$1" > /dev/null 2>&1; }
+
+getent group ban-ipc > /dev/null || groupadd --system ban-ipc
+
+have_user ban-agent || useradd --system --user-group --no-create-home \
+  --home-dir /nonexistent --shell /usr/sbin/nologin ban-agent
+
+have_user maintenance || useradd --create-home --shell /bin/bash --groups ban-ipc maintenance
+if [[ "${BAN_PROFILE}" == development ]]; then
+  [[ -n "${BAN_DEV_MAINTENANCE_PASSWORD:-}" ]] || {
+    echo "ban: BAN_DEV_MAINTENANCE_PASSWORD is not set in config/development/profile.env" >&2
+    exit 1
+  }
+  usermod --append --groups sudo maintenance
+  echo "maintenance:${BAN_DEV_MAINTENANCE_PASSWORD}" | chpasswd
+else
+  passwd --lock maintenance
+fi
+
+case "${BAN_VARIANT}" in
+  pos)
+    have_user adad || useradd --create-home --shell /usr/sbin/nologin \
+      --groups ban-ipc,lp,dialout,input,video adad
+    passwd --lock adad
+    ;;
+  server)
+    have_user ban-console || useradd --system --user-group --no-create-home \
+      --home-dir /nonexistent --shell /usr/sbin/nologin --groups ban-ipc ban-console
+    ;;
+esac
+
+echo "ban: users created (profile ${BAN_PROFILE}, variant ${BAN_VARIANT})"

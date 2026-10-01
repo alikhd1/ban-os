@@ -10,6 +10,8 @@ Contents:
 - `profile.env`: build variables, including `BAN_DEV_MAINTENANCE_PASSWORD`, the publicly known
   password of the `maintenance` user on development images (log in on the console or with
   `ssh maintenance@<vm>`).
+- `profile.env` also holds `BAN_DEV_GRUB_PASSWORD`, the password of GRUB user `ban` on
+  development ISOs (menu editing and the Maintenance and Recovery entries).
 - `package-lists/dev.list.chroot`: `openssh-server htop vim strace`.
 - `configuration/`: files added to the image on top of `image/configuration/` and the variant's
   files. `etc/systemd/system/ssh.service.d/ban-hostkeys.conf` generates the SSH host keys at

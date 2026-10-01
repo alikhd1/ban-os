@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Ban OS
+Comment=Ban OS POS session
+Exec=/opt/ban/kiosk/ban-session
+Type=Application
+DesktopNames=Ban

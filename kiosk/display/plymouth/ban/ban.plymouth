@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Ban OS
+Description=Ban OS boot splash (plan part 1, step 2.6)
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/ban
+ScriptFile=/usr/share/plymouth/themes/ban/ban.script

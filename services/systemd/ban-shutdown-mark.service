@@ -1,0 +1,14 @@
+# Plan part 1, Stage 2 events: SYSTEM_SHUTDOWN / SYSTEM_REBOOT and the clean
+# shutdown mark. Stopped before local-fs.target, so /var/lib is still mounted.
+[Unit]
+Description=Ban OS shutdown and reboot record
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+ExecStop=/opt/ban/boot/ban-shutdown-mark
+
+[Install]
+WantedBy=multi-user.target

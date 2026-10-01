@@ -12,10 +12,9 @@
 # Firmware comes only from image/packages/firmware.list.chroot (step 1.2).
 #
 # --bootappend-live: live-boot only (no live-config, see
-# image/packages/live.list.chroot). Kernel and systemd messages also go to
-# the first serial port, so `make test-boot` shows why a boot failed; tty0
-# comes last so it stays /dev/console. Stage 2 (step 2.1) sets the final
-# kernel command line.
+# image/packages/live.list.chroot). The menu that actually boots is written by
+# image/scripts/hooks/7100-ban-grub.hook.binary with the variant's kernel
+# command line (BAN_KERNEL_CMDLINE in image/variants/<variant>/variant.env).
 
 set -e
 
@@ -30,6 +29,6 @@ lb config noauto \
   --binary-images iso-hybrid --bootloaders grub-efi \
   --debian-installer none \
   --apt-recommends false --firmware-chroot false \
-  --bootappend-live "boot=live console=ttyS0,115200n8 console=tty0" \
+  --bootappend-live "boot=live" \
   --iso-application "Ban OS" --iso-volume "BANOS" \
   "${@}"

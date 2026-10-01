@@ -312,9 +312,11 @@ GRUB_DISABLE_OS_PROBER=true
 | Ban OS — Maintenance | `ban.mode=maintenance` | بعد از autologin به‌جای Adad، صفحه PIN و Ban Center |
 | Ban OS — Recovery | `ban.mode=recovery systemd.unit=ban-recovery.target` | محیط Recovery (مرحله ۱۰) |
 
-- نمایش منو: نگه‌داشتن F12 (یا Esc/Shift) هنگام بوت؛ متن «Press F12 for Maintenance» در Plymouth.
+- نمایش منو: فشردن Esc (یا F4، یا نگه‌داشتن Shift) هنگام بوت. F12 ممکن نیست: منوی مخفی GRUB فقط به Esc/F4/Shift واکنش می‌دهد و F12 در بسیاری از mini PCها کلید منوی بوت firmware است. متن راهنما در Plymouth حذف شد چون Plymouth بعد از GRUB می‌آید؛ راهنما در مستندات تکنسین.
 - منوی GRUB با رمز محافظت می‌شود (`set superusers` + `password_pbkdf2`)؛ ورودی پیش‌فرض `--unrestricted` است. ویرایش پارامترها بدون رمز ممکن نیست (جلوگیری از `init=/bin/sh`).
 - `panic=10`: kernel panic → reboot خودکار.
+- پیاده‌سازی: تا نصب‌کننده (مرحله ۱۲) Image یک ISO live است و منوی آن را `image/scripts/hooks/7100-ban-grub.hook.binary` با همین ورودی‌ها و پارامترها می‌نویسد؛ `/etc/default/grub.d/ban.cfg` (به‌علاوه `fsck.repair=yes`) در Image هست ولی فقط روی سیستم نصب‌شده اثر دارد؛ `40_ban` همراه نصب‌کننده در مرحله ۱۲ نوشته و آزمایش می‌شود.
+- رمز GRUB (کاربر `ban`): در `development` رمز شناخته‌شده از `config/development/profile.env`؛ در `staging`/`production` رمز تصادفی در هر Build که نگه‌داری نمی‌شود (ویرایش منوی ISO ممکن نیست)؛ سیستم نصب‌شده رمز اختصاصی خودش را در Provisioning می‌گیرد.
 
 ## گام ۲.۲ — systemd boot sequence
 
@@ -325,7 +327,7 @@ GRUB_DISABLE_OS_PROBER=true
 
 ## گام ۲.۳ — محیط گرافیکی پایه
 
-`kiosk.list.chroot`: `xserver-xorg-core xserver-xorg-input-libinput xserver-xorg-video-all xinit x11-xserver-utils lightdm openbox unclutter-xfixes onboard plymouth plymouth-themes xinput-calibrator`
+`kiosk.list.chroot`: `xserver-xorg-core xserver-xorg-input-libinput xserver-xorg-video-all xinit x11-xserver-utils lightdm openbox unclutter-xfixes onboard plymouth plymouth-themes xinput-calibrator` + `xinput` (نقشه touch در `apply-display`)، `python3` (خواندن `display.toml` با `tomllib`)، `kbd` (`chvt` برای `ban-bootfail`)
 
 چرا Xorg و نه Wayland: سازگاری PyQt فعلی Adad، `xrandr`/`xinput` برای touch و چرخش، و سازگاری بهتر RustDesk در آینده (Ban Desk).
 
@@ -341,7 +343,7 @@ autologin-session=ban
 user-session=ban
 greeter-hide-users=true
 allow-guest=false
-xserver-command=X -nocursor -nolisten tcp
+xserver-command=X -nolisten tcp
 ```
 
 `/usr/share/xsessions/ban.desktop` → `Exec=/opt/ban/kiosk/ban-session`.
@@ -363,11 +365,13 @@ xserver-command=X -nocursor -nolisten tcp
 xset s off -dpms s noblank                 # صفحه هرگز خاموش نشود
 xsetroot -solid "#101418"
 /opt/ban/kiosk/apply-display               # xrandr از /etc/ban/display.toml
-unclutter-xfixes --timeout 1 --touch &      # مخفی‌شدن cursor
+unclutter --timeout 1 --hide-on-touch &     # مخفی‌شدن cursor (فرمان بسته unclutter-xfixes)
 systemctl --user import-environment DISPLAY XAUTHORITY
 systemctl --user start ban-session.target   # adad-launcher / ban-center
 exec openbox --config-file /etc/ban/openbox/rc.xml
 ```
+
+`-nocursor` حذف شد: cursor را همیشه پنهان می‌کرد و دستگاه‌های دارای ماوس بی‌استفاده می‌شدند؛ `unclutter` آن را در حالت بیکار و لمس پنهان می‌کند.
 
 `import-environment` همان مشکلی را حل می‌کند که full-chat §10 گفته بود: «برای Production باید Environment مربوط به Xauthority/session را صحیح مدیریت کنیم.»
 
@@ -381,10 +385,12 @@ Plymouth theme `ban` در `kiosk/display/plymouth/`: لوگوی Ban OS، نوا�
 
 | خطا | رفتار |
 | --- | --- |
-| X بالا نیاید (۳ بار در ۶۰ث) | LightDM متوقف ← `ban-bootfail.service` روی tty1: متن فارسی/انگلیسی خطا، کد خطا، «برای Maintenance کلید M» (با PIN) · رویداد `GRAPHICS_FAILED` |
+| X بالا نیاید (۳ بار در ۶۰ث) | LightDM متوقف ← `ban-bootfail.service` روی tty1: متن انگلیسی خطا (کنسول Linux فارسی را شکل نمی‌دهد)، کد خطا، «برای Maintenance کلید M» (با PIN) · رویداد `GRAPHICS_FAILED` |
 | fsck خطا بدهد | تعمیر خودکار (`fsck.repair=yes`)؛ اگر نشد → Recovery target |
 | kernel panic | reboot بعد از ۱۰ث؛ شمارنده بوت ناموفق در `/var/lib/ban/bootcount`؛ ۳ بار پیاپی → ورودی Recovery |
 | پارتیشن داده mount نشود | Launcher صفحه خطا می‌دهد، Adad اجرا نمی‌شود (هرگز روی root داده ننویسد) |
+
+در مرحله ۲ روی ISO live: صفحه `ban-bootfail`، `panic=10` و شمارنده بوت فعال‌اند؛ انتقال به Recovery پس از خطای fsck یا ۳ بوت ناموفق و بررسی پارتیشن داده به Recovery (مرحله ۱۰) و دیسک نصب‌شده (مرحله ۱۲) نیاز دارند. تا `ban-event` (مرحله ۴) رویدادها به‌صورت سطرهای journal ثبت می‌شوند.
 
 ## Variant server
 

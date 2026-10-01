@@ -1,0 +1,60 @@
+#!/bin/bash
+# Boot sequence (plan part 1, steps 2.1, 2.2 and "Variant server").
+
+set -euo pipefail
+
+# shellcheck source=/dev/null
+source /live-build/config/ban/build.env
+# shellcheck source=/dev/null
+source /etc/ban/release
+
+# pos: graphical.target, server: multi-user.target
+systemctl set-default "${BAN_DEFAULT_TARGET}"
+
+# Only tty1 has a console; the others stay closed (logind.conf.d/ban.conf
+# also stops logind from starting gettys on demand).
+for n in 2 3 4 5 6; do
+  systemctl mask "getty@tty${n}.service" "autovt@tty${n}.service"
+done
+
+# Updates come only from ban-update (Stage 9); no modem; no background
+# e2scrub on cheap storage.
+systemctl mask apt-daily.timer apt-daily-upgrade.timer ModemManager.service \
+  e2scrub_all.timer
+
+# Offline-first: boot never waits for the network.
+systemctl disable NetworkManager-wait-online.service
+
+systemctl enable ban-bootcount.service ban-shutdown-mark.service
+
+# GRUB defaults of the installed system (step 2.1). Inert on the live ISO,
+# whose menu is written by 7100-ban-grub.hook.binary from the same command
+# line; the installer (Stage 12) runs update-grub with it.
+mkdir -p /etc/default/grub.d
+cat > /etc/default/grub.d/ban.cfg << CFG
+# Ban OS ${BAN_VARIANT} (plan part 1, step 2.1)
+GRUB_TIMEOUT_STYLE=hidden
+GRUB_TIMEOUT=1
+GRUB_DISTRIBUTOR="Ban OS"
+GRUB_CMDLINE_LINUX_DEFAULT="${BAN_KERNEL_CMDLINE}"
+GRUB_DISABLE_RECOVERY=true
+GRUB_DISABLE_OS_PROBER=true
+CFG
+if [[ "${BAN_GRUB_SERIAL}" == true ]]; then
+  cat >> /etc/default/grub.d/ban.cfg << 'CFG'
+GRUB_TERMINAL="console serial"
+GRUB_SERIAL_COMMAND="serial --unit=0 --speed=115200"
+CFG
+fi
+
+# Console banner instead of "Debian GNU/Linux 13". On the server variant this
+# is the status screen of tty1 until ban-console (Stage 5).
+cat > /etc/issue << ISSUE
+
+  Ban OS ${OS_VERSION} (${OS_VARIANT})
+  Host: \n    IP: \4    Console: \l
+
+ISSUE
+cp /etc/issue /etc/issue.net
+
+echo "ban: boot sequence configured (default ${BAN_DEFAULT_TARGET})"

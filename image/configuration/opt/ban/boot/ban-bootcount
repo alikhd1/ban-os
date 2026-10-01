@@ -1,0 +1,29 @@
+#!/bin/bash
+# Boot counter (plan part 1, step 2.7): incremented early in every boot and
+# reset to 0 by ban-boot-events once the boot succeeded, so it counts
+# consecutive failed boots. Selecting the Recovery entry after 3 failures
+# needs the Recovery system and the installed bootloader (Stages 10 and 12);
+# until then repeated failures are reported in the journal. Run by
+# ban-bootcount.service.
+
+set -euo pipefail
+
+STATE=/var/lib/ban
+COUNTER="${STATE}/bootcount"
+
+mkdir -p "${STATE}" /run/ban
+if [[ ! -e "${COUNTER}" ]]; then
+  # No counter yet: first boot of this system, nothing to compare with.
+  touch /run/ban/first-boot
+fi
+
+count="$(cat "${COUNTER}" 2> /dev/null || true)"
+[[ "${count}" =~ ^[0-9]+$ ]] || count=0
+count=$((count + 1))
+echo "${count}" > "${COUNTER}"
+sync "${COUNTER}"
+
+if ((count > 3)); then
+  # "<2>" = syslog priority CRITICAL for journald
+  echo "<2>BOOT_FAILED_REPEATEDLY failed_boots=$((count - 1))"
+fi

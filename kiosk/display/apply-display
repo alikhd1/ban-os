@@ -1,0 +1,128 @@
+#!/usr/bin/env python3
+"""Apply /etc/ban/display.toml to the running X display (plan part 1, step 2.5).
+
+Primary output (mode, rotation), customer display (extended, never mirrored)
+and touch mapping (xinput map-to-output plus an optional calibration matrix).
+Called by ban-session. Every problem is logged and skipped: a wrong display
+setting must never keep the POS session from starting.
+"""
+
+import subprocess
+import sys
+import tomllib
+
+CONFIG = "/etc/ban/display.toml"
+ROTATIONS = {"normal", "left", "right", "inverted"}
+POSITIONS = {"right-of", "left-of", "above", "below"}
+
+
+def log(msg):
+    print(f"apply-display: {msg}", file=sys.stderr)
+
+
+def run(*args):
+    log("run: " + " ".join(args))
+    result = subprocess.run(args, capture_output=True, text=True)
+    if result.returncode != 0:
+        log(f"failed ({result.returncode}): {result.stderr.strip()}")
+    return result
+
+
+def load_config():
+    try:
+        with open(CONFIG, "rb") as f:
+            return tomllib.load(f)
+    except FileNotFoundError:
+        log(f"{CONFIG} not found, using defaults")
+    except tomllib.TOMLDecodeError as e:
+        log(f"{CONFIG} is invalid ({e}), using defaults")
+    return {}
+
+
+def connected_outputs():
+    result = run("xrandr", "--query")
+    return [line.split()[0] for line in result.stdout.splitlines()
+            if " connected" in line]
+
+
+def output_args(name, mode, rotate=None):
+    args = ["--output", name]
+    args += ["--auto"] if mode == "auto" else ["--mode", mode]
+    if rotate:
+        args += ["--rotate", rotate]
+    return args
+
+
+def apply_outputs(cfg):
+    outputs = connected_outputs()
+    if not outputs:
+        log("no connected outputs")
+        return None
+
+    primary = cfg.get("primary", {})
+    name = primary.get("output", "auto")
+    if name == "auto":
+        name = outputs[0]
+    elif name not in outputs:
+        log(f"primary output {name} not connected, using {outputs[0]}")
+        name = outputs[0]
+    rotate = primary.get("rotate", "normal")
+    if rotate not in ROTATIONS:
+        log(f"unknown rotation {rotate!r}, using normal")
+        rotate = "normal"
+    args = output_args(name, primary.get("mode", "auto"), rotate) + ["--primary"]
+
+    customer = cfg.get("customer", {})
+    others = [o for o in outputs if o != name]
+    if customer.get("enabled", False):
+        cname = customer.get("output", "auto")
+        if cname == "auto":
+            cname = others[0] if others else None
+        if cname not in others:
+            log(f"customer display {cname} not connected, skipped")
+        else:
+            position = customer.get("position", "right-of")
+            if position not in POSITIONS:
+                log(f"unknown position {position!r}, using right-of")
+                position = "right-of"
+            args += output_args(cname, customer.get("mode", "auto"))
+            args += [f"--{position}", name]
+            others.remove(cname)
+    for other in others:
+        args += ["--output", other, "--off"]
+
+    run("xrandr", *args)
+    return name
+
+
+def touch_devices(wanted):
+    result = run("xinput", "list", "--name-only")
+    names = [n.strip() for n in result.stdout.splitlines() if n.strip()]
+    if wanted != "auto":
+        return [n for n in names if n == wanted]
+    return [n for n in names if "touch" in n.lower()]
+
+
+def apply_touch(cfg, primary):
+    touch = cfg.get("touch", {})
+    matrix = touch.get("matrix", [])
+    if matrix and len(matrix) != 9:
+        log("touch.matrix needs 9 numbers, ignored")
+        matrix = []
+    for device in touch_devices(touch.get("device", "auto")):
+        run("xinput", "map-to-output", device, primary)
+        if matrix:
+            run("xinput", "set-prop", device, "Coordinate Transformation Matrix",
+                *[str(float(v)) for v in matrix])
+
+
+def main():
+    cfg = load_config()
+    primary = apply_outputs(cfg)
+    if primary:
+        apply_touch(cfg, primary)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

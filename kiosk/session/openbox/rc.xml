@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Openbox configuration of the Ban session (plan part 1, step 2.5).
+  Stage 2: one desktop, no menus, no key or mouse bindings (Openbox only
+  binds what is listed here). Stage 3 (step 3.5) adds the kiosk rules:
+  no decorations, every window maximized.
+-->
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <resistance>
+    <strength>0</strength>
+    <screen_edge_strength>0</screen_edge_strength>
+  </resistance>
+  <focus>
+    <focusNew>yes</focusNew>
+    <followMouse>no</followMouse>
+  </focus>
+  <placement>
+    <policy>Smart</policy>
+  </placement>
+  <desktops>
+    <number>1</number>
+    <popupTime>0</popupTime>
+  </desktops>
+  <keyboard>
+  </keyboard>
+  <mouse>
+  </mouse>
+  <menu>
+  </menu>
+</openbox_config>

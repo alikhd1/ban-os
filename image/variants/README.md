@@ -16,7 +16,11 @@ Each variant folder holds:
 
 - `variant.env`: build variables, sourced by `image/scripts/build-image.sh`.
 - `package-lists/*.list.chroot` (optional): package lists added on top of `image/packages/`.
-- `configuration/` (optional, from Stage 1): files added on top of `image/configuration/`.
+- `configuration/` (optional): files added on top of `image/configuration/`.
+- `files.list` (optional): repository files to install, `<source> <destination>` per line (e.g.
+  everything from `kiosk/` for `pos`).
+- `variant.env` also carries the kernel command line (`BAN_KERNEL_CMDLINE`) and the extra GRUB
+  entries (`BAN_GRUB_ENTRIES`) of the variant.
 
 A package list name must be unique across `image/packages/`, the variant and the profile;
 the build stops on a clash.

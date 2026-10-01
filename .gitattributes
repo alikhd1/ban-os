@@ -8,3 +8,4 @@ Makefile    text eol=lf
 image/**    text=auto eol=lf
 services/** text=auto eol=lf
 config/**   text=auto eol=lf
+kiosk/**    text=auto eol=lf

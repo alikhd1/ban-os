@@ -1,0 +1,8 @@
+# Plan part 1, step 2.1: target of the GRUB entry "Ban OS - Recovery"
+# (systemd.unit=ban-recovery.target). Placeholder until the Recovery system
+# exists (Stage 10, plan part 3).
+[Unit]
+Description=Ban OS Recovery
+Requires=basic.target ban-recovery.service
+After=basic.target ban-recovery.service
+AllowIsolate=yes

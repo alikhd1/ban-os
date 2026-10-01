@@ -1,0 +1,19 @@
+# Graphical kiosk base (plan part 1, step 2.3), pos variant only.
+# Added to the plan's list: xinput (touch mapping in apply-display), python3
+# (apply-display reads /etc/ban/display.toml with tomllib), kbd (chvt for the
+# ban-bootfail screen).
+xserver-xorg-core
+xserver-xorg-input-libinput
+xserver-xorg-video-all
+xinit
+x11-xserver-utils
+xinput
+lightdm
+openbox
+unclutter-xfixes
+onboard
+plymouth
+plymouth-themes
+xinput-calibrator
+python3
+kbd

@@ -1,0 +1,35 @@
+#!/bin/bash
+# Boot events (plan part 1, Stage 2, "Events"): SYSTEM_BOOT with the boot
+# duration and how the previous boot ended, SYSTEM_CRASH after an unclean
+# end, and the reset of the boot counter. Until ban-event exists (Stage 4) the
+# events go to the journal. Run by ban-boot-ok.service once multi-user.target
+# is reached.
+
+set -euo pipefail
+
+STATE=/var/lib/ban
+LAST="${STATE}/last-shutdown"
+
+# shellcheck source=/dev/null
+source /etc/ban/release
+
+duration="$(cut -d' ' -f1 /proc/uptime)"
+
+if grep -qw 'boot=live' /proc/cmdline; then
+  # A live system keeps no state between boots.
+  previous=unknown-live
+elif [[ -e /run/ban/first-boot ]]; then
+  previous=first-boot
+elif [[ -f "${LAST}" ]]; then
+  previous="$(cat "${LAST}")"
+else
+  previous=crash
+  # "<2>" = syslog priority CRITICAL for journald
+  echo "<2>SYSTEM_CRASH previous boot ended without a clean shutdown or reboot"
+fi
+rm -f "${LAST}"
+
+echo "<6>SYSTEM_BOOT duration_s=${duration} previous=${previous} os_version=${OS_VERSION} variant=${OS_VARIANT}"
+
+echo 0 > "${STATE}/bootcount"
+sync "${STATE}/bootcount"

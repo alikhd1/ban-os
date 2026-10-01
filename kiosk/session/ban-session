@@ -1,0 +1,28 @@
+#!/bin/bash
+# Graphical session of the pos variant (plan part 1, step 2.5). Started by
+# LightDM (autologin of user adad) through /usr/share/xsessions/ban.desktop.
+# Output goes to ~/.xsession-errors of the session user.
+
+set -euo pipefail
+
+# The screen never blanks or powers off.
+xset s off -dpms s noblank || echo "ban-session: xset failed" >&2
+# Same colour as the Plymouth theme, so the switch from boot splash to X does
+# not flash.
+xsetroot -solid "#101418" || echo "ban-session: xsetroot failed" >&2
+
+# Resolution, rotation, touch mapping and customer display from
+# /etc/ban/display.toml. A broken display config must not stop the session.
+/opt/ban/kiosk/apply-display || echo "ban-session: apply-display failed" >&2
+
+# Hide the pointer when idle and on touch; it shows again when a mouse moves.
+unclutter --timeout 1 --hide-on-touch &
+
+# The user services of the session (adad-launcher, ban-center from Stage 3)
+# need the X display.
+systemctl --user import-environment DISPLAY XAUTHORITY ||
+  echo "ban-session: cannot pass DISPLAY to the user manager" >&2
+systemctl --user start ban-session.target ||
+  echo "ban-session: ban-session.target failed to start" >&2
+
+exec openbox --config-file /etc/ban/openbox/rc.xml

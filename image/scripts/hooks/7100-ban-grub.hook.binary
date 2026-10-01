@@ -1,0 +1,69 @@
+#!/bin/bash
+# Boot menu of the ISO (plan part 1, step 2.1 and "Variant server"). Replaces
+# the grub.cfg live-build generates: hidden menu (Esc or Shift shows it),
+# 1 s timeout, password-protected editing, and the Ban OS entries.
+# Runs on the build host in the binary/ directory.
+
+set -euo pipefail
+
+# shellcheck source=/dev/null
+source ../config/ban/build.env
+
+kernels=(live/vmlinuz-*)
+kernel="$(basename "${kernels[0]}")"
+initrd="initrd.img-${kernel#vmlinuz-}"
+[[ -f "live/${kernel}" && -f "live/${initrd}" ]] || {
+  echo "ban: kernel or initrd not found in binary/live/" >&2
+  exit 1
+}
+[[ -n "${BAN_GRUB_PASSWORD_HASH:-}" ]] || {
+  echo "ban: BAN_GRUB_PASSWORD_HASH missing from build.env" >&2
+  exit 1
+}
+
+normal="${BAN_KERNEL_CMDLINE}"
+# Recovery shows its messages: no quiet, no splash.
+recovery="$(echo " ${BAN_KERNEL_CMDLINE} " | sed -e 's/ quiet / /; s/ splash / /; s/^ //; s/ $//')"
+
+entry() { # title, id, restricted (yes/no), kernel options
+  local unrestricted=""
+  [[ "$3" == no ]] && unrestricted=" --unrestricted"
+  cat << ENTRY
+
+menuentry "$1" --id $2${unrestricted} {
+	linux /live/${kernel} boot=live $4
+	initrd /live/${initrd}
+}
+ENTRY
+}
+
+{
+  echo "# Ban OS boot menu, written by image/scripts/hooks/7100-ban-grub.hook.binary"
+  echo
+  if [[ "${BAN_GRUB_SERIAL}" == true ]]; then
+    echo "serial --unit=0 --speed=115200"
+    echo "terminal_input console serial"
+    echo "terminal_output console serial"
+  fi
+  echo "set default=ban"
+  echo "set timeout_style=hidden"
+  echo "set timeout=1"
+  echo
+  echo "# Editing entries and starting the restricted ones needs this password."
+  echo 'set superusers="ban"'
+  echo "password_pbkdf2 ban ${BAN_GRUB_PASSWORD_HASH}"
+
+  entry "Ban OS" ban no "${normal}"
+  for extra in ${BAN_GRUB_ENTRIES}; do
+    case "${extra}" in
+      maintenance) entry "Ban OS - Maintenance" maintenance yes "${normal} ban.mode=maintenance" ;;
+      recovery) entry "Ban OS - Recovery" recovery yes "${recovery} ban.mode=recovery systemd.unit=ban-recovery.target" ;;
+      *)
+        echo "ban: unknown GRUB entry '${extra}' in BAN_GRUB_ENTRIES" >&2
+        exit 1
+        ;;
+    esac
+  done
+} > boot/grub/grub.cfg
+
+echo "ban: GRUB menu written (${BAN_GRUB_ENTRIES:-no extra entries})"

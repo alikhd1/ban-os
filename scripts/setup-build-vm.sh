@@ -13,7 +13,7 @@ set -euo pipefail
 APT_CACHE_PORT=3142
 
 IMAGE_PACKAGES=(
-  live-build debootstrap squashfs-tools xorriso grub-efi-amd64-bin
+  live-build debootstrap squashfs-tools xorriso grub-efi-amd64-bin grub-common
   mtools dosfstools qemu-system-x86 qemu-utils ovmf git make debhelper devscripts
 )
 DEV_PACKAGES=(

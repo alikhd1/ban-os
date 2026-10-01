@@ -1,0 +1,5 @@
+# Plan part 1, step 2.5: the user services of the Ban graphical session,
+# started by /opt/ban/kiosk/ban-session after X is up. Empty in Stage 2;
+# adad-launcher and ban-center join it in Stage 3 (step 3.4).
+[Unit]
+Description=Ban OS graphical session

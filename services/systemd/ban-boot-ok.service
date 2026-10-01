@@ -1,10 +1,13 @@
-# Plan part 1, step 1.7: boot success marker for `make test-boot`.
+# Plan part 1, step 1.7 and Stage 2 events: once multi-user.target is
+# reached, record SYSTEM_BOOT (ban-boot-events) and write the boot success
+# marker for `make test-boot` (ban-boot-ok).
 [Unit]
 Description=Ban OS boot success marker for make test-boot
 After=multi-user.target
 
 [Service]
 Type=oneshot
+ExecStart=/opt/ban/boot/ban-boot-events
 ExecStart=/opt/ban/boot/ban-boot-ok
 
 [Install]

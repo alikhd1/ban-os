@@ -1,0 +1,21 @@
+#!/bin/bash
+# Records SYSTEM_SHUTDOWN or SYSTEM_REBOOT and marks the end of the boot as
+# clean, so the next boot can tell a crash from a normal stop (plan part 1,
+# Stage 2, "Events"). Run as ExecStop= of ban-shutdown-mark.service, before
+# the file systems are unmounted.
+
+set -euo pipefail
+
+STATE=/var/lib/ban
+
+if systemctl list-jobs --no-legend 2> /dev/null | grep -q 'reboot\.target'; then
+  kind=reboot
+  echo "<6>SYSTEM_REBOOT"
+else
+  kind=shutdown
+  echo "<6>SYSTEM_SHUTDOWN"
+fi
+
+mkdir -p "${STATE}"
+echo "${kind}" > "${STATE}/last-shutdown"
+sync "${STATE}/last-shutdown"

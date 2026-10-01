@@ -139,8 +139,25 @@ make run-vm QEMU_EXTRA="-display vnc=:1"
 
 then connect a VNC client to `<vm>:5901`. The serial console is on the terminal.
 
-The GRUB menu boots the live system after 5 seconds (Stage 2 hides the menu). Kernel and
-systemd messages also go to the serial port, so `-serial stdio` shows the whole boot.
+### Boot menu
+
+The GRUB menu is hidden and boots "Ban OS" after 1 second. Press **Esc** (or F4, or hold Shift
+where the firmware reports it) right after power-on to show it. Entries:
+
+| Entry | `pos` | `server` | Needs the GRUB password |
+| --- | --- | --- | --- |
+| Ban OS | ✓ | ✓ | no |
+| Ban OS - Maintenance (`ban.mode=maintenance`) | ✓ | | yes |
+| Ban OS - Recovery (`ban.mode=recovery`, placeholder until Stage 10) | ✓ | ✓ | yes |
+
+Editing an entry (`e`) or the GRUB command line (`c`) asks for user `ban` and the password. On
+development ISOs that is `BAN_DEV_GRUB_PASSWORD` in `config/development/profile.env`; staging and
+production ISOs get a random password at every build that is not stored anywhere, so their menu
+cannot be edited (the installed system gets its own password at provisioning, Stage 12).
+
+`pos` boots quietly with the Plymouth splash and only the boot marker reaches the serial port.
+`server` has no splash and sends GRUB, the kernel and a login prompt to the serial port as well
+(IPMI serial-over-LAN).
 
 ### Logging in
 
@@ -176,6 +193,34 @@ On a development image of each variant (`timedatectl` and `pg_lsclusters` as `ma
 
 Stage 1 adds packages, so build once **online** to fill the apt-cacher-ng cache before an
 offline re-test.
+
+### Stage 2 acceptance
+
+The `pos` checks need a screen: use `QEMU_EXTRA="-display vnc=:1"` and a VNC client on
+`<build-vm>:5901`. Without KVM every boot takes minutes, so the "< 20 s" target can only be
+measured on real hardware or KVM (`docs/operations/boot-time.md`).
+
+| Check | `pos` | `server` |
+| --- | --- | --- |
+| Power on, no input | Ban splash, then the empty Ban session (dark `#101418` screen) | status screen on tty1 and on the serial port |
+| Esc at power-on | GRUB menu with 3 entries | GRUB menu with 2 entries, also on serial |
+| `e` on an entry | asks for user `ban` and password | same |
+| X fails 3 times in 60 s | `ban-bootfail` screen on tty1 (`E-GFX-01`), `GRAPHICS_FAILED` in the journal | (no X) |
+| `Ctrl+Alt+F3` | nothing to log in to (tty2..6 closed; VT switching itself is blocked in Stage 3) | same |
+| `dpkg -l 'xserver-*'` | installed | **no packages** |
+| `journalctl -b -g SYSTEM_BOOT` | one `SYSTEM_BOOT` line | same |
+
+To provoke the `ban-bootfail` screen on a development `pos` guest (SSH or VNC):
+
+```bash
+printf '[Seat:*]
+xserver-command=/bin/false
+' | sudo tee /etc/lightdm/lightdm.conf.d/99-break.conf
+sudo systemctl restart lightdm
+```
+
+LightDM then fails three times within a minute and tty1 shows the error screen. Remove the file
+and reboot to undo it (the live system forgets it anyway).
 
 ## 6. CI
 

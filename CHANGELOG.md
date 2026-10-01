@@ -8,6 +8,38 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). This file tr
 
 ## [Unreleased]
 
+### Added (Stage 2, boot and login)
+
+- ISO boot menu (`7100-ban-grub.hook.binary`): hidden, 1 s, Esc or Shift shows it; entries
+  "Ban OS" (unrestricted), "Maintenance" (`pos`) and "Recovery" (placeholder target until
+  Stage 10); editing needs GRUB user `ban`. development: known password; staging/production: a
+  random password per build that is not kept. Kernel command line per variant in `variant.env`;
+  `server` also on the serial port. `/etc/default/grub.d/ban.cfg` for the installed system.
+- Boot sequence: `graphical.target` (`pos`) / `multi-user.target` (`server`), tty2..6 closed,
+  `apt-daily*`, `ModemManager`, `e2scrub_all` masked, `NetworkManager-wait-online` disabled,
+  `/etc/issue` with version, hostname and IP.
+- Users of step 2.4: `adad` (`pos`), `maintenance`, `ban-agent`, `ban-console` (`server`), group
+  `ban-ipc`.
+- `pos` graphical session: `kiosk.list.chroot`, LightDM autologin of `adad` into the `ban`
+  session, `ban-session`, `apply-display` with `/etc/ban/display.toml`, Openbox config, user target
+  `ban-session.target`.
+- Plymouth theme `ban` with the BAN logo, a progress bar and "Powered by Adad" on `#101418`.
+- `ban-bootfail` screen on tty1 after 3 failed LightDM starts in 60 s (`GRAPHICS_FAILED`).
+- Boot events in the journal: `SYSTEM_BOOT` (duration, previous end), `SYSTEM_CRASH`,
+  `SYSTEM_SHUTDOWN`, `SYSTEM_REBOOT`; boot counter `/var/lib/ban/bootcount`.
+- `docs/operations/boot-time.md`.
+
+### Changed (Stage 2)
+
+- The GRUB menu shows with Esc/Shift, not F12 (GRUB's hidden menu cannot react to F12, and F12 is
+  the firmware boot menu on many mini PCs); no "Press F12" hint in Plymouth, which starts after
+  GRUB.
+- LightDM starts X without `-nocursor`; `unclutter --hide-on-touch` (the plan's `--touch` does
+  not exist) hides the pointer instead.
+- `kiosk.list.chroot` also has `xinput`, `python3` and `kbd`.
+- Not yet active on a live ISO: `40_ban` and `update-grub` (Stage 12), fsck repair to Recovery,
+  Recovery after 3 failed boots and the data partition check (Stages 10 and 12).
+
 ### Added (Stage 1, base system)
 
 - Package lists of step 1.2: common (`base`, `firmware`, `network`, `locale`, `postgres`,

@@ -59,6 +59,7 @@ VERSION="$(tr -d '[:space:]' < "${REPO_ROOT}/VERSION")"
 export BAN_APT_CACHE="${BAN_APT_CACHE:-http://127.0.0.1:3142}"
 
 command -v lb > /dev/null || die "live-build is not installed; run scripts/setup-build-vm.sh"
+command -v grub-mkpasswd-pbkdf2 > /dev/null || die "grub-mkpasswd-pbkdf2 is missing; run scripts/setup-build-vm.sh"
 curl --silent --output /dev/null --max-time 5 "${BAN_APT_CACHE}" ||
   die "apt mirror ${BAN_APT_CACHE} is not reachable; is apt-cacher-ng running?"
 
@@ -104,11 +105,24 @@ for dir in \
 done
 rm -f "${INCLUDES}/README.md"
 
-mkdir -p "${INCLUDES}/usr/lib/systemd/system"
+# Repository files of the variant, "<source> <destination>" per line.
+if [[ -f "${VARIANT_DIR}/files.list" ]]; then
+  while read -r src dst; do
+    [[ -z "${src}" || "${src}" == \#* ]] && continue
+    [[ -f "${REPO_ROOT}/${src}" ]] || die "${VARIANT_DIR}/files.list: ${src} does not exist"
+    mkdir -p "${INCLUDES}$(dirname "${dst}")"
+    cp -a "${REPO_ROOT}/${src}" "${INCLUDES}${dst}"
+  done < "${VARIANT_DIR}/files.list"
+fi
+
+mkdir -p "${INCLUDES}/usr/lib/systemd/system" "${INCLUDES}/usr/lib/systemd/user"
 shopt -s nullglob
 for unit in "${REPO_ROOT}"/services/systemd/*.{service,timer,mount,target}; do
   [[ "$(basename "${unit}")" == _template.* ]] && continue
   cp "${unit}" "${INCLUDES}/usr/lib/systemd/system/"
+done
+for unit in "${REPO_ROOT}"/services/systemd/user/*.{service,timer,target}; do
+  cp "${unit}" "${INCLUDES}/usr/lib/systemd/user/"
 done
 shopt -u nullglob
 
@@ -130,6 +144,21 @@ EOF
 mkdir -p config/ban
 cat "${PROFILE_DIR}/profile.env" "${VARIANT_DIR}/variant.env" > config/ban/build.env
 echo "OS_VERSION=${VERSION}" >> config/ban/build.env
+
+# GRUB password of the ISO menu (step 2.1): the known development password,
+# or for staging/production a random one that nobody keeps, so the menu of
+# those ISOs cannot be edited at all. Only the hash reaches the image.
+if [[ "${PROFILE}" == development ]]; then
+  [[ -n "${BAN_DEV_GRUB_PASSWORD:-}" ]] || die "BAN_DEV_GRUB_PASSWORD is not set in ${PROFILE_DIR}/profile.env"
+  grub_password="${BAN_DEV_GRUB_PASSWORD}"
+else
+  grub_password="$(head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9')"
+fi
+grub_hash="$(printf '%s\n%s\n' "${grub_password}" "${grub_password}" |
+  grub-mkpasswd-pbkdf2 | sed -n 's/^.* is \(grub\.pbkdf2\..*\)$/\1/p')"
+unset grub_password
+[[ -n "${grub_hash}" ]] || die "grub-mkpasswd-pbkdf2 did not return a hash"
+echo "BAN_GRUB_PASSWORD_HASH=${grub_hash}" >> config/ban/build.env
 
 echo "==> staging hooks"
 mkdir -p config/hooks/normal

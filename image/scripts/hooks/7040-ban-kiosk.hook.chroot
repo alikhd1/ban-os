@@ -1,0 +1,17 @@
+#!/bin/bash
+# Graphical boot of the pos variant (plan part 1, steps 2.3 to 2.6): Plymouth
+# theme in the initramfs, LightDM as display manager.
+
+set -euo pipefail
+
+# shellcheck source=/dev/null
+source /live-build/config/ban/build.env
+
+[[ "${BAN_VARIANT}" == pos ]] || exit 0
+
+systemctl enable lightdm.service
+
+plymouth-set-default-theme ban
+update-initramfs -u -k all
+
+echo "ban: kiosk configured (plymouth theme $(plymouth-set-default-theme))"

@@ -1,0 +1,19 @@
+# Display layout of a pos terminal (plan part 1, step 2.5). Read by
+# /opt/ban/kiosk/apply-display at session start; Ban Center writes it from
+# Stage 7. "auto" lets X choose.
+
+[primary]
+output = "auto"      # xrandr output name, or "auto" = first connected output
+mode = "auto"        # e.g. "1024x768", or "auto" = preferred mode
+rotate = "normal"    # normal | left | right | inverted
+
+[customer]
+# Second screen facing the customer: extended, never mirrored.
+enabled = false
+output = "auto"      # xrandr output name, or "auto" = first other connected output
+mode = "auto"
+position = "right-of"  # right-of | left-of | above | below
+
+[touch]
+device = "auto"      # xinput device name, or "auto" = every touchscreen
+matrix = []          # 9 numbers from calibration; empty = mapping to the primary output only

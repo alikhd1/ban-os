@@ -31,6 +31,7 @@ jobs:
         run: >-
           shellcheck scripts/*.sh image/scripts/*.sh image/scripts/hooks/*
           image/configuration/opt/ban/boot/* tests/boot/*.sh
+          kiosk/session/ban-session kiosk/maintenance/ban-bootfail
 
       - name: Packages
         run: make debs

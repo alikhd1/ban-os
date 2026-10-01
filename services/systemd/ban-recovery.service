@@ -1,0 +1,11 @@
+# Placeholder screen of ban-recovery.target until Stage 10.
+[Unit]
+Description=Ban OS Recovery placeholder
+Conflicts=getty@tty1.service
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c 'printf "\033[2J\033[H\n  Ban OS Recovery is not available in this version.\n  Restart the device and choose Ban OS.\n"; exec sleep infinity'
+StandardOutput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
