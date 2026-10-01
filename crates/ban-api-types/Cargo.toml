@@ -6,5 +6,6 @@ description = "Shared API contract between Ban Agent and Ban Center"
 edition.workspace = true
 authors.workspace = true
 publish.workspace = true
+license-file.workspace = true
 
 [dependencies]

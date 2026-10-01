@@ -25,4 +25,5 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). This file tr
   `ban-os-<version>-<profile>-<variant>-amd64.iso`, one QEMU disk per variant. The build stops
   when two package lists of different sources share a name.
 - Plans updated for the `server` variant and its text UI `ban-console` (`console/`).
+- Proprietary `LICENSE` (Copyright (c) 2026 Bans); referenced by all crates and their `.deb` packages.
 - `VERSION` 0.1.0, `README.md`, `CONTRIBUTING.md`, `docs/architecture/build.md`.

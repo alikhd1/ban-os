@@ -5,6 +5,7 @@ description = "Ban Agent: privileged control daemon of Ban OS"
 edition.workspace = true
 authors.workspace = true
 publish.workspace = true
+license-file.workspace = true
 
 [dependencies]
 ban-api-types = { path = "../../crates/ban-api-types" }

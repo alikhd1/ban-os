@@ -47,3 +47,8 @@ Variants: `pos`, `server`; see [image/variants/README.md](image/variants/README.
 - Conventions: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 Every folder has a `README.md` that says what belongs there and which stage fills it.
+
+## License
+
+Proprietary. Copyright (c) 2026 Bans, all rights reserved; see [LICENSE](LICENSE).
+Third-party components keep their own licenses.
