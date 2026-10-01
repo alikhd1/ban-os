@@ -1,0 +1,50 @@
+# CI (plan part 1, step 1.7): on every push, build the packages, then build and
+# boot-test both image variants on the self-hosted runner of the build VM.
+# Setup of the runner: docs/architecture/build.md, "CI".
+name: build
+
+on:
+  push:
+  workflow_dispatch:
+
+# Both variants share image/live-build/; never run two builds at once.
+concurrency:
+  group: ban-os-image-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: [self-hosted, linux, x64, ban-build]
+    timeout-minutes: 240
+    env:
+      # Repository variables (Settings > Secrets and variables > Actions >
+      # Variables); raise BOOT_TIMEOUT and lower VM_MEM on a VM without KVM.
+      BOOT_TIMEOUT: ${{ vars.BOOT_TIMEOUT || '120' }}
+      VM_MEM: ${{ vars.VM_MEM || '4096' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain on PATH
+        run: echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
+
+      - name: shellcheck
+        run: >-
+          shellcheck scripts/*.sh image/scripts/*.sh image/scripts/hooks/*
+          image/configuration/opt/ban/boot/* tests/boot/*.sh
+
+      - name: Packages
+        run: make debs
+
+      - name: Image pos (build + boot test)
+        run: make build test-boot PROFILE=development VARIANT=pos
+
+      - name: Image server (build + boot test)
+        run: make build test-boot PROFILE=development VARIANT=server
+
+      - name: Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs
+          path: out/*.log
+          if-no-files-found: ignore

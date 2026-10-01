@@ -1,0 +1,5 @@
+# Replaces the live.list.chroot that `lb config` would generate: live-boot only,
+# without live-config. live-config rewrites hostname, locale, timezone and
+# keyboard at every boot and creates a user with a well-known password; Ban OS
+# sets those from image/configuration/ instead.
+live-boot

@@ -1,0 +1,5 @@
+# Developer tools (plan part 1, step 1.2), development profile only
+openssh-server
+htop
+vim
+strace

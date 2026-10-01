@@ -1,0 +1,6 @@
+# Networking (plan part 1, step 1.2)
+network-manager
+wpasupplicant
+iw
+rfkill
+nftables

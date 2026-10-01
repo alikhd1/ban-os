@@ -1,0 +1,10 @@
+# Base system (plan part 1, step 1.2). logrotate: step 1.5 (rotation of /var/log/adad).
+linux-image-amd64
+systemd
+systemd-sysv
+systemd-timesyncd
+dbus
+udev
+sudo
+ca-certificates
+logrotate

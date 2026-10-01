@@ -1,0 +1,17 @@
+#!/bin/bash
+# Boot success marker for `make test-boot` (plan part 1, step 1.7): writes
+# "BAN-BOOT-OK <OS_VERSION>" to the first serial port once multi-user.target
+# is reached. Run by ban-boot-ok.service.
+
+set -euo pipefail
+
+# shellcheck source=/dev/null
+source /etc/ban/release
+
+marker="BAN-BOOT-OK ${OS_VERSION}"
+echo "${marker}"
+
+# Devices without a serial port are fine; the marker is in the journal anyway.
+if [[ -w /dev/ttyS0 ]]; then
+  echo "${marker}" > /dev/ttyS0 || true
+fi

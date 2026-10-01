@@ -1,0 +1,18 @@
+# Plan part 1, step 1.5: /var/tmp in RAM to save writes on cheap SSD/eMMC.
+# /tmp is already a tmpfs on Debian 13 (tmp.mount).
+[Unit]
+Description=Temporary directory /var/tmp (tmpfs)
+ConditionPathIsSymbolicLink=!/var/tmp
+DefaultDependencies=no
+Conflicts=umount.target
+Before=local-fs.target umount.target
+After=swap.target
+
+[Mount]
+What=tmpfs
+Where=/var/tmp
+Type=tmpfs
+Options=mode=1777,strictatime,nosuid,nodev
+
+[Install]
+WantedBy=local-fs.target

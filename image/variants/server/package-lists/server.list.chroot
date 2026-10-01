@@ -1,0 +1,5 @@
+# VM guest agents (plan part 1, step 1.2), server variant only. Each one only
+# starts on its own hypervisor.
+qemu-guest-agent
+open-vm-tools
+hyperv-daemons

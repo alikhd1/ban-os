@@ -1,0 +1,49 @@
+#!/bin/bash
+# Base system settings of every Ban OS image (plan part 1, steps 1.3 to 1.6).
+# Runs inside the chroot after the packages and image/configuration/ are in
+# place, and after live-build's own 1xxx hooks.
+
+set -euo pipefail
+
+# shellcheck source=/dev/null
+source /live-build/config/ban/build.env
+
+# Locales from /etc/locale.gen; system default en_US.UTF-8 (step 1.3).
+# live-build's 1020-create-locales-files hook removes /etc/locale.conf
+# (on trixie /etc/default/locale points to it) and expects live-config to
+# write it at boot; Ban OS has no live-config, so it is written here.
+locale-gen
+echo "LANG=en_US.UTF-8" > /etc/locale.conf
+if [[ ! -L /etc/default/locale ]]; then
+  echo "LANG=en_US.UTF-8" > /etc/default/locale
+fi
+
+# Timezone (step 1.3). timedatectl reads /etc/localtime, not /etc/timezone.
+ln -sf /usr/share/zoneinfo/Asia/Tehran /etc/localtime
+
+# root is locked on every image (steps 0.6 and 2.4).
+passwd --lock root
+
+# Ban directories that belong to the image (step 1.6). State directories
+# under /var and /run come from /usr/lib/tmpfiles.d/ban.conf.
+mkdir -p /opt/adad/{bin,lib,plugins,resources} \
+  /opt/ban/{agent,center,hardware,updater,browser,boot} \
+  /etc/adad /etc/ban
+chmod 0755 /opt/ban/boot/*
+
+# PostgreSQL stays on the Unix socket until Stage 3 configures it. The cluster
+# created at install time has ssl=on with the snakeoil certificate, which
+# live-build's 8090 hook removes; without this PostgreSQL would not start.
+for confd in /etc/postgresql/*/main/conf.d; do
+  [[ -d "${confd}" ]] || continue
+  cat > "${confd}/ban.conf" << 'CONF'
+# Ban OS: no TLS until the Server role is configured (plan stages 3 and 11).
+ssl = off
+CONF
+done
+
+# Units from services/systemd/ and the standard ones the plan relies on.
+systemctl enable ban-boot-ok.service ban-clock-check.service var-tmp.mount \
+  systemd-timesyncd.service fstrim.timer
+
+echo "ban: system configured (profile ${BAN_PROFILE}, variant ${BAN_VARIANT})"

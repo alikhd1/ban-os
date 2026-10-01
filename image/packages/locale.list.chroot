@@ -1,0 +1,4 @@
+# Locale, timezone, keyboard (plan part 1, step 1.2)
+locales
+tzdata
+keyboard-configuration

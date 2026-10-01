@@ -1,0 +1,5 @@
+# Diagnostics (plan part 1, step 1.2)
+smartmontools
+usbutils
+pciutils
+lm-sensors

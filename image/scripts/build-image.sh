@@ -88,6 +88,54 @@ for list in \
 done
 shopt -u nullglob
 
+# Files of the image root, in increasing precedence: common, variant, profile.
+# Unlike package lists, a later source may replace a file of an earlier one.
+echo "==> staging image files"
+INCLUDES=config/includes.chroot_after_packages
+rm -rf "${INCLUDES}"
+mkdir -p "${INCLUDES}"
+for dir in \
+  "${REPO_ROOT}/image/configuration" \
+  "${VARIANT_DIR}/configuration" \
+  "${PROFILE_DIR}/configuration"; do
+  if [[ -d "${dir}" ]]; then
+    cp -a "${dir}/." "${INCLUDES}/"
+  fi
+done
+rm -f "${INCLUDES}/README.md"
+
+mkdir -p "${INCLUDES}/usr/lib/systemd/system"
+shopt -s nullglob
+for unit in "${REPO_ROOT}"/services/systemd/*.{service,timer,mount,target}; do
+  [[ "$(basename "${unit}")" == _template.* ]] && continue
+  cp "${unit}" "${INCLUDES}/usr/lib/systemd/system/"
+done
+shopt -u nullglob
+
+# /etc/ban/release (step 1.3). APP_VERSION arrives with the Adad package
+# (Stage 3), HARDWARE_API_VERSION with ban-hardware (Stage 8).
+AGENT_API_VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' "${REPO_ROOT}/crates/ban-api-types/Cargo.toml" | head -n1)"
+[[ -n "${AGENT_API_VERSION}" ]] || die "cannot read the version of crates/ban-api-types"
+mkdir -p "${INCLUDES}/etc/ban"
+cat > "${INCLUDES}/etc/ban/release" << EOF
+OS_VERSION=${VERSION}
+OS_VARIANT=${VARIANT}
+OS_PROFILE=${PROFILE}
+OS_BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+AGENT_API_VERSION=${AGENT_API_VERSION}
+EOF
+
+# Build variables for the chroot hooks; live-build mounts config/ at
+# /live-build/config inside the chroot. Not part of the image.
+mkdir -p config/ban
+cat "${PROFILE_DIR}/profile.env" "${VARIANT_DIR}/variant.env" > config/ban/build.env
+echo "OS_VERSION=${VERSION}" >> config/ban/build.env
+
+echo "==> staging hooks"
+mkdir -p config/hooks/normal
+rm -f config/hooks/normal/*-ban-*.hook.*
+cp "${REPO_ROOT}"/image/scripts/hooks/*.hook.* config/hooks/normal/
+
 echo "==> lb config"
 lb config
 

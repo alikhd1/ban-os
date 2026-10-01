@@ -1,0 +1,11 @@
+# Plan part 1, step 1.5: keep Adad's own log files small on cheap SSD/eMMC.
+/var/log/adad/*.log {
+	daily
+	rotate 14
+	maxsize 50M
+	compress
+	delaycompress
+	missingok
+	notifempty
+	copytruncate
+}

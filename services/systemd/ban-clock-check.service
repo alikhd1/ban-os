@@ -1,0 +1,15 @@
+# Plan part 1, step 1.4: detect a clock that is older than the image build
+# (dead RTC battery). Runs before timesyncd can move the clock, so it sees the
+# RTC time.
+[Unit]
+Description=Ban OS clock sanity check
+DefaultDependencies=no
+After=local-fs.target
+Before=systemd-timesyncd.service time-set.target sysinit.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/ban/boot/ban-clock-check
+
+[Install]
+WantedBy=sysinit.target

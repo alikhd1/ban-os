@@ -92,10 +92,22 @@ Two independent choices:
 - `VARIANT` is `pos` (default) or `server`: what the image is (graphical POS terminal or
   headless store server); see `image/variants/README.md`.
 
-The target runs `image/scripts/build-image.sh <profile> <variant>`: `lb clean` -> stage package
-lists from `image/packages/`, `image/variants/<variant>/package-lists/` and
-`config/<profile>/package-lists/` (a name clash between them stops the build) -> `lb config` ->
-`lb build` (with sudo).
+The target runs `image/scripts/build-image.sh <profile> <variant>`:
+
+1. `lb clean`.
+2. Stage package lists from `image/packages/`, `image/variants/<variant>/package-lists/` and
+   `config/<profile>/package-lists/` into `image/live-build/config/package-lists/`. A name clash
+   between them stops the build.
+3. Stage the image files into `config/includes.chroot_after_packages/`: `image/configuration/`,
+   then `image/variants/<variant>/configuration/`, then `config/<profile>/configuration/` (a later
+   source replaces a file of an earlier one), the units from `services/systemd/`, and the
+   generated `/etc/ban/release`.
+4. Stage `config/ban/build.env` (profile and variant variables; read by the hooks, not copied
+   into the image) and the hooks from `image/scripts/hooks/` into `config/hooks/normal/`.
+5. `lb config`, then `lb build` (with sudo).
+
+Everything staged under `image/live-build/config/` is generated and git-ignored; edit the
+sources instead.
 
 Output: `out/ban-os-<version>-<profile>-<variant>-amd64.iso`; `<version>` comes from the
 `VERSION` file. The full log is `out/build-<profile>-<variant>.log`. The two variants share the
@@ -107,7 +119,7 @@ Other targets:
 | --- | --- |
 | `make debs` | builds the Ban `.deb` packages into `out/debs/` (currently `ban-agent`, `ban-event`) |
 | `make run-vm` | boots the ISO in QEMU + OVMF with a 32 GB virtual disk (`out/disk-<variant>.qcow2`) and a 1024x768 screen |
-| `make test-boot` | headless boot; waits 120 s for `BAN-BOOT-OK <version>` on the serial port |
+| `make test-boot` | headless boot; waits `BOOT_TIMEOUT` (120 s) for `BAN-BOOT-OK <version>` on the serial port; full serial output in `out/boot-<profile>-<variant>.log` |
 | `make clean` | `lb clean --purge`: removes the chroot and the live-build cache (keeps `out/`) |
 
 ## 5. Boot the image
@@ -127,10 +139,62 @@ make run-vm QEMU_EXTRA="-display vnc=:1"
 
 then connect a VNC client to `<vm>:5901`. The serial console is on the terminal.
 
-In Stage 0 both variants are the same bare Debian live system: they boot to a login prompt and
-nothing more. They start to differ in Stage 1 (package lists) and Stage 2 (the `pos` graphical
-session; the `server` variant stays on `multi-user.target`).
-`make test-boot` times out until Stage 1 adds `ban-boot-ok.service`.
+The GRUB menu boots the live system after 5 seconds (Stage 2 hides the menu). Kernel and
+systemd messages also go to the serial port, so `-serial stdio` shows the whole boot.
+
+### Logging in
+
+Only **development** images have a login: user `maintenance` with full sudo, on the console or
+over SSH. Its password is `BAN_DEV_MAINTENANCE_PASSWORD` in `config/development/profile.env`.
+staging and production images have no login user before Stage 2; root is locked on all images.
+
+To reach SSH of the guest from the build VM, forward a port:
+
+```bash
+make run-vm QEMU_EXTRA="-display vnc=:1 -nic user,model=virtio-net-pci,hostfwd=tcp::2223-:22"
+ssh -p 2223 maintenance@127.0.0.1
+```
+
+### Without KVM
+
+Software emulation boots several times slower and the guest needs RAM the build VM may not have:
+
+```bash
+make test-boot VARIANT=pos BOOT_TIMEOUT=900 VM_MEM=2048
+```
+
+### Stage 1 acceptance
+
+On a development image of each variant (`timedatectl` and `pg_lsclusters` as `maintenance`):
+
+| Check | Expected |
+| --- | --- |
+| `make test-boot VARIANT=pos` and `VARIANT=server` | `test-boot: OK` |
+| `timedatectl` | `Time zone: Asia/Tehran`, `NTP service: active` |
+| `pg_lsclusters` | `17 main ... online` |
+| `ls -lh out/*.iso` | record the sizes; target `pos` < 1.2 GB, `server` < 800 MB |
+
+Stage 1 adds packages, so build once **online** to fill the apt-cacher-ng cache before an
+offline re-test.
+
+## 6. CI
+
+`.github/workflows/build.yml` runs on every push on a self-hosted GitHub Actions runner on the
+build VM: shellcheck, `make debs`, then `make build test-boot` for `pos` and `server`. Build
+logs and serial logs are uploaded as the `logs` artifact.
+
+One-time setup on the build VM:
+
+1. GitHub repository > Settings > Actions > Runners > New self-hosted runner (Linux, x64).
+   Follow the download and `./config.sh` steps shown there and add the label `ban-build`.
+2. Install it as a service running as the build user: `sudo ./svc.sh install <user>` and
+   `sudo ./svc.sh start`.
+3. The build calls `sudo lb`, `sudo mv` and `sudo chown`. CI cannot type a password, so allow
+   them without one: `sudo visudo -f /etc/sudoers.d/ban-ci` with
+   `<user> ALL=(root) NOPASSWD: /usr/bin/lb, /usr/bin/mv, /usr/bin/chown`. This is effectively
+   root for that user; acceptable on a dedicated build VM only.
+4. Without KVM, set the repository variables `BOOT_TIMEOUT` (e.g. `900`) and `VM_MEM` (e.g.
+   `2048`) under Settings > Secrets and variables > Actions > Variables.
 
 ## Troubleshooting
 

@@ -7,3 +7,4 @@ Makefile    text eol=lf
 *.env       text eol=lf
 image/**    text=auto eol=lf
 services/** text=auto eol=lf
+config/**   text=auto eol=lf

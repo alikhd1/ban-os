@@ -1,0 +1,11 @@
+# Plan part 1, step 1.7: boot success marker for `make test-boot`.
+[Unit]
+Description=Ban OS boot success marker for make test-boot
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/ban/boot/ban-boot-ok
+
+[Install]
+WantedBy=multi-user.target

@@ -20,7 +20,8 @@ Each profile folder holds:
 - `profile.env`: build variables, sourced by `image/scripts/build-image.sh`.
 - `package-lists/*.list.chroot` (optional): package lists added on top of `image/packages/`
   and the variant's lists.
-- override files (optional, from Stage 1): files that replace those in `image/configuration/`.
+- `configuration/` (optional): files added to the image on top of `image/configuration/` and
+  the variant's files; a file here replaces one with the same path there.
 
 Rules: no secrets in any profile. No default PIN, password or key in `staging` and `production`;
 their secrets are created on the device during provisioning (Stage 12).

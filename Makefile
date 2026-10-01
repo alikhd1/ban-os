@@ -25,6 +25,11 @@ OVMF_CODE ?= $(firstword $(wildcard /usr/share/OVMF/OVMF_CODE.fd /usr/share/OVMF
 KVM       := $(if $(wildcard /dev/kvm),-enable-kvm,)
 # Extra QEMU arguments for run-vm, e.g. QEMU_EXTRA="-display vnc=:1" over SSH.
 QEMU_EXTRA ?=
+# Guest RAM in MiB (plan: 4096); lower it on a small build VM, e.g. VM_MEM=2048.
+VM_MEM ?= 4096
+# Seconds test-boot waits for BAN-BOOT-OK; raise it without KVM, e.g. 900.
+BOOT_TIMEOUT ?= 120
+export VM_MEM BOOT_TIMEOUT
 
 SUDO := $(if $(filter 0,$(shell id -u)),,sudo)
 
@@ -57,7 +62,7 @@ $(DISK):
 run-vm: $(DISK)
 	@test -f "$(ISO)" || { echo "$(ISO) not found; run: make build PROFILE=$(PROFILE) VARIANT=$(VARIANT)" >&2; exit 1; }
 	@test -n "$(OVMF_CODE)" || { echo "OVMF firmware not found; install the ovmf package" >&2; exit 1; }
-	qemu-system-x86_64 $(KVM) -m 4096 -smp 2 \
+	qemu-system-x86_64 $(KVM) -m $(VM_MEM) -smp 2 \
 		-bios $(OVMF_CODE) \
 		-cdrom $(ISO) \
 		-drive file=$(DISK),if=virtio \
@@ -68,8 +73,10 @@ run-vm: $(DISK)
 test-boot:
 	@test -f "$(ISO)" || { echo "$(ISO) not found; run: make build PROFILE=$(PROFILE) VARIANT=$(VARIANT)" >&2; exit 1; }
 	@test -n "$(OVMF_CODE)" || { echo "OVMF firmware not found; install the ovmf package" >&2; exit 1; }
-	tests/boot/test-boot.sh $(ISO) $(OVMF_CODE)
+	BOOT_LOG=$(OUT)/boot-$(PROFILE)-$(VARIANT).log tests/boot/test-boot.sh $(ISO) $(OVMF_CODE)
 
 clean:
 	cd image/live-build && $(SUDO) lb clean --purge
-	rm -rf image/live-build/config/package-lists
+	rm -rf image/live-build/config/package-lists \
+		image/live-build/config/includes.chroot_after_packages \
+		image/live-build/config/hooks image/live-build/config/ban

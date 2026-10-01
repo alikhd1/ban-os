@@ -1,0 +1,6 @@
+# Plan part 1, step 1.3: US and Persian layouts, Alt+Shift switches.
+XKBMODEL="pc105"
+XKBLAYOUT="us,ir"
+XKBVARIANT=","
+XKBOPTIONS="grp:alt_shift_toggle"
+BACKSPACE="guess"

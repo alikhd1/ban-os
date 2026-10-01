@@ -176,12 +176,14 @@ lb config noauto \
 
 - `--mirror-chroot-security` هم از mirror محلی؛ وگرنه به‌روزرسانی‌های امنیتی مستقیم از اینترنت گرفته می‌شوند و Build آفلاین نیست.
 - `--firmware-chroot false`: حالت `true` هر بسته‌ای در archive را که firmware دارد نصب می‌کند، از جمله `firmware-b43-installer` و `firmware-b43legacy-installer` (contrib) که firmware را هنگام نصب از اینترنت دانلود می‌کنند ← Build آفلاین شکست می‌خورد؛ به‌علاوه بسته‌های بی‌ربط (مثل `indi-dsi`، درایور دوربین نجومی) و ISO حدود ۸۳۵MB. firmware فقط از `firmware.list.chroot` (گام ۱.۲) نصب می‌شود.
+- بدون `live-config`: `image/packages/live.list.chroot` فقط `live-boot` دارد. `live-config` در هر بوت hostname، locale، timezone و keyboard را بازنویسی می‌کرد و کاربری با رمز شناخته‌شده می‌ساخت؛ تنظیمات از فایل‌های گام ۱.۳ می‌آیند. ورود در مرحله ۱ فقط روی Profile `development` با کاربر `maintenance`.
+- `--bootappend-live "boot=live console=ttyS0,115200n8 console=tty0"` و timeout پنج‌ثانیه‌ای GRUB (منوی پیش‌فرض live-build بی‌نهایت منتظر می‌ماند و `make test-boot` را متوقف می‌کرد)؛ هر دو تا مرحله ۲ (گام ۲.۱).
 
 ## گام ۱.۲ — package-listها (`image/packages/`)
 
 | فایل | محتوا | Variant |
 | --- | --- | --- |
-| `base.list.chroot` | `linux-image-amd64 systemd systemd-sysv systemd-timesyncd dbus udev sudo ca-certificates` | همه |
+| `base.list.chroot` | `linux-image-amd64 systemd systemd-sysv systemd-timesyncd dbus udev sudo ca-certificates logrotate` (`logrotate` برای گام ۱.۵) | همه |
 | `firmware.list.chroot` | `firmware-linux firmware-linux-nonfree firmware-realtek firmware-iwlwifi firmware-misc-nonfree intel-microcode amd64-microcode` | همه |
 | `network.list.chroot` | `network-manager wpasupplicant iw rfkill nftables` | همه |
 | `print.list.chroot` | `cups cups-filters` | `pos` |
@@ -215,7 +217,7 @@ lb config noauto \
 
 ## گام ۱.۵ — دوام دیسک (SSD/eMMC ارزان)
 
-- fstab: `noatime,commit=30` روی root و data.
+- fstab: `noatime,commit=30` روی root و data. Image مرحله ۱ live است و fstab برای root/data ندارد؛ این گزینه‌ها را نصب‌کننده (مرحله ۱۲) همراه پارتیشن‌های گام ۱۰.۱ می‌نویسد.
 - tmpfs برای `/tmp` و `/var/tmp`.
 - `fstrim.timer` فعال.
 - سقف journald (۱.۳) و logrotate برای `/var/log/adad`.

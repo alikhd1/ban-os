@@ -9,4 +9,6 @@ Content on top of the common image: `ban-console`, the VM guest agents `qemu-gue
 (`nut`, Stage 8), PostgreSQL tuning from the RAM size (Stage 3), `adad-db` for the database
 schema instead of the Adad application.
 
+Package lists: `server` (`qemu-guest-agent`, `open-vm-tools`, `hyperv-daemons`).
+
 **Filled in:** Stage 0 (`variant.env`); package lists in Stage 1; `ban-console` in Stage 5.

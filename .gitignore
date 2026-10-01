@@ -22,6 +22,9 @@ image/live-build/config/source
 # Staged by image/scripts/build-image.sh from image/packages/, image/variants/<variant>/
 # and config/<profile>/
 image/live-build/config/package-lists/
+image/live-build/config/includes.chroot_after_packages/
+image/live-build/config/hooks/
+image/live-build/config/ban/
 
 # Editors / OS
 .vscode/

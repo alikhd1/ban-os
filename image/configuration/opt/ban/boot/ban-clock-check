@@ -1,0 +1,25 @@
+#!/bin/bash
+# Clock sanity check at boot (plan part 1, step 1.4). A dead RTC battery means
+# wrong invoice dates, so a system year older than the image build year is
+# reported as CLOCK_INVALID (WARNING). Until ban-event exists (Stage 4) the
+# event goes to the journal; /run/ban/clock-invalid is the flag that
+# adad-launcher shows as a warning (Stage 3). Run by ban-clock-check.service.
+
+set -euo pipefail
+
+FLAG=/run/ban/clock-invalid
+
+# shellcheck source=/dev/null
+source /etc/ban/release
+
+build_year="${OS_BUILD_DATE%%-*}"
+now_year="$(date -u +%Y)"
+
+mkdir -p /run/ban
+if ((now_year < build_year)); then
+  # "<4>" = syslog priority WARNING for journald
+  echo "<4>CLOCK_INVALID system time $(date -u +%Y-%m-%dT%H:%M:%SZ) is before the image build year ${build_year}"
+  echo "system_time=$(date -u +%Y-%m-%dT%H:%M:%SZ) build_year=${build_year}" > "${FLAG}"
+else
+  rm -f "${FLAG}"
+fi
