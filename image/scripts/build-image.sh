@@ -91,14 +91,17 @@ shopt -u nullglob
 echo "==> lb config"
 lb config
 
-echo "==> lb build"
-"${SUDO[@]}" lb build 2>&1 | tee build.log
+# The log goes to out/, not into the live-build tree, which live-build and
+# auto/clean manage themselves.
+BUILD_LOG="${OUT_DIR}/build-${PROFILE}-${VARIANT}.log"
+mkdir -p "${OUT_DIR}"
+echo "==> lb build (log: ${BUILD_LOG})"
+"${SUDO[@]}" lb build 2>&1 | tee "${BUILD_LOG}"
 
 ISO_SRC="${LB_DIR}/live-image-amd64.hybrid.iso"
-[[ -f "${ISO_SRC}" ]] || die "lb build finished but ${ISO_SRC} does not exist; see ${LB_DIR}/build.log"
+[[ -f "${ISO_SRC}" ]] || die "lb build finished but ${ISO_SRC} does not exist; see ${BUILD_LOG}"
 
 ISO_DST="${OUT_DIR}/ban-os-${VERSION}-${PROFILE}-${VARIANT}-amd64.iso"
-mkdir -p "${OUT_DIR}"
 "${SUDO[@]}" mv "${ISO_SRC}" "${ISO_DST}"
 "${SUDO[@]}" chown "$(id -u):$(id -g)" "${ISO_DST}"
 

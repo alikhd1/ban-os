@@ -76,7 +76,7 @@ lists from `image/packages/`, `image/variants/<variant>/package-lists/` and
 `lb build` (with sudo).
 
 Output: `out/ban-os-<version>-<profile>-<variant>-amd64.iso`; `<version>` comes from the
-`VERSION` file. The full log is `image/live-build/build.log`. The two variants share the
+`VERSION` file. The full log is `out/build-<profile>-<variant>.log`. The two variants share the
 live-build working directory, so build them one after the other, not in parallel.
 
 Other targets:
