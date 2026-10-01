@@ -379,7 +379,7 @@ exec openbox --config-file /etc/ban/openbox/rc.xml
 
 ## گام ۲.۶ — صفحه Boot
 
-Plymouth theme `ban` در `kiosk/display/plymouth/`: لوگوی Ban OS، نوار پیشرفت، متن «Powered by Adad»، پس‌زمینه هم‌رنگ `xsetroot` تا انتقال Plymouth → X بدون پرش باشد. (full-chat: «کاربر اصلاً حس نمی‌کند یک Debian پشت سیستم است.»)
+Plymouth theme `ban` در `kiosk/display/plymouth/`: لوگوی Ban OS، نوار پیشرفت، متن «Powered by bans.ir»، پس‌زمینه هم‌رنگ `xsetroot` تا انتقال Plymouth → X بدون پرش باشد. (full-chat: «کاربر اصلاً حس نمی‌کند یک Debian پشت سیستم است.»)
 
 ## گام ۲.۷ — کنترل خطای بوت
 

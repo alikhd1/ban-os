@@ -23,7 +23,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). This file tr
 - `pos` graphical session: `kiosk.list.chroot`, LightDM autologin of `adad` into the `ban`
   session, `ban-session`, `apply-display` with `/etc/ban/display.toml`, Openbox config, user target
   `ban-session.target`.
-- Plymouth theme `ban` with the BAN logo, a progress bar and "Powered by Adad" on `#101418`.
+- Plymouth theme `ban` with the BAN logo, a progress bar and "Powered by bans.ir" on `#101418`.
 - `ban-bootfail` screen on tty1 after 3 failed LightDM starts in 60 s (`GRAPHICS_FAILED`).
 - Boot events in the journal: `SYSTEM_BOOT` (duration, previous end), `SYSTEM_CRASH`,
   `SYSTEM_SHUTDOWN`, `SYSTEM_REBOOT`; boot counter `/var/lib/ban/bootcount`.

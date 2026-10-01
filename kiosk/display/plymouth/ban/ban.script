@@ -1,5 +1,5 @@
 // Ban OS boot splash (plan part 1, step 2.6): logo, progress bar and
-// "Powered by Adad" on #101418, the same colour ban-session gives the X root
+// "Powered by bans.ir" on #101418, the same colour ban-session gives the X root
 // window, so Plymouth -> X has no visible jump.
 
 Window.SetBackgroundTopColor(0.063, 0.078, 0.094);
