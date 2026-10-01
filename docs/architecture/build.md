@@ -131,13 +131,23 @@ make run-vm VARIANT=server     # server
 
 `run-vm` and `test-boot` take the same `PROFILE` and `VARIANT` as `build` to find the ISO.
 
-Over SSH there is no display; either use X forwarding or a VNC display:
+Over SSH there is no display; show the guest's screen on a password-protected VNC display:
 
 ```bash
-make run-vm QEMU_EXTRA="-display vnc=:1"
+make run-vm VNC=1
 ```
 
-then connect a VNC client to `<vm>:5901`. The serial console is on the terminal.
+The first run creates a random 8-character password in `~/.config/ban-os/vnc-password` on the
+build VM (VNC allows no more); every run prints it. Connect a VNC client to port 5901 of the build
+VM, e.g. from a Mac through an SSH tunnel:
+
+```bash
+ssh -p 2222 -L 5901:127.0.0.1:5901 vboxuser@127.0.0.1
+```
+
+and then `vnc://localhost:5901` in Finder > Go > Connect to Server. The serial console stays on
+the terminal that runs `make run-vm`, and port 2223 of the build VM is forwarded to the guest's
+SSH (`GUEST_SSH_PORT`).
 
 ### Boot menu
 
@@ -165,11 +175,11 @@ Only **development** images have a login: user `maintenance` with full sudo, on 
 over SSH. Its password is `BAN_DEV_MAINTENANCE_PASSWORD` in `config/development/profile.env`.
 staging and production images have no login user before Stage 2; root is locked on all images.
 
-To reach SSH of the guest from the build VM, forward a port:
+`make run-vm` forwards port 2223 of the build VM to the guest's SSH, so from a second session
+on the build VM:
 
 ```bash
-make run-vm QEMU_EXTRA="-display vnc=:1 -nic user,model=virtio-net-pci,hostfwd=tcp::2223-:22"
-ssh -p 2223 maintenance@127.0.0.1
+ssh -p 2223 -o StrictHostKeyChecking=no maintenance@127.0.0.1
 ```
 
 ### Without KVM
@@ -196,8 +206,8 @@ offline re-test.
 
 ### Stage 2 acceptance
 
-The `pos` checks need a screen: use `QEMU_EXTRA="-display vnc=:1"` and a VNC client on
-`<build-vm>:5901`. Without KVM every boot takes minutes, so the "< 20 s" target can only be
+The `pos` checks need a screen: `make run-vm VARIANT=pos VNC=1` and a VNC client (see
+"Boot the image"). Without KVM every boot takes minutes, so the "< 20 s" target can only be
 measured on real hardware or KVM (`docs/operations/boot-time.md`).
 
 | Check | `pos` | `server` |

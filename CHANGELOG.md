@@ -72,6 +72,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). This file tr
 - PostgreSQL TLS off until Stage 3 (live-build removes the snakeoil certificate).
 - QEMU loads the UEFI firmware as pflash drives (`OVMF_CODE_4M.fd` read-only plus a copy of
   `OVMF_VARS_4M.fd`); the plan's `-bios OVMF_CODE.fd` does not exist on Debian 13.
+- `make run-vm VNC=1` shows the guest on a password-protected VNC display (password kept in
+  `~/.config/ban-os/vnc-password` on the build VM) and always forwards port 2223 to the guest's
+  SSH.
 - `make test-boot` matches only the marker line, keeps the serial log in `out/`, and takes
   `BOOT_TIMEOUT` and `VM_MEM`; `make run-vm` takes `VM_MEM`.
 
