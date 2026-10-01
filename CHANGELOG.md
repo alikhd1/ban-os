@@ -23,6 +23,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). This file tr
 - Development images: user `maintenance` with full sudo and SSH.
 - CI workflow `.github/workflows/build.yml` for a self-hosted runner on the build VM.
 - `docs/architecture/layout.md`, `docs/operations/test-hardware.md`.
+- Stage 1 acceptance passed on 2026-10-01 (development profile, QEMU + OVMF without KVM):
+  both variants boot and pass `make test-boot`, `Asia/Tehran` with NTP active, PostgreSQL
+  `17/main` online. ISO sizes: `pos` 803 MB (target < 1.2 GB), `server` 530 MB
+  (target < 800 MB).
 
 ### Changed (Stage 1)
 
