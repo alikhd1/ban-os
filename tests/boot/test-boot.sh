@@ -22,8 +22,10 @@ OVMF_CODE="${2:-}"
 OVMF_VARS_TEMPLATE="${3:-}"
 BOOT_TIMEOUT="${BOOT_TIMEOUT:-120}"
 VM_MEM="${VM_MEM:-4096}"
-# The marker line itself, not systemd's "Starting ban-boot-ok.service" line.
-MARKER_RE='^BAN-BOOT-OK [0-9]'
+# Not anchored: the marker can land on the same line as the serial getty's
+# "login: " prompt. The unit's description does not contain the marker, so
+# systemd's "Starting ban-boot-ok.service" line cannot match.
+MARKER_RE='BAN-BOOT-OK [0-9]'
 
 [[ -f "${ISO}" && -f "${OVMF_CODE}" && -f "${OVMF_VARS_TEMPLATE}" ]] || {
   echo "usage: $0 <iso> <ovmf-code.fd> <ovmf-vars-template.fd>" >&2
