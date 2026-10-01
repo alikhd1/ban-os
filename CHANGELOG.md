@@ -37,6 +37,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). This file tr
 - LightDM starts X without `-nocursor`; `unclutter --hide-on-touch` (the plan's `--touch` does
   not exist) hides the pointer instead.
 - `kiosk.list.chroot` also has `xinput`, `python3` and `kbd`.
+- Debian's `lightdm-autologin` PAM file refuses users with a `nologin` shell; only `adad` is
+  exempted (Debian's file is diverted, the build stops if its shell rule changes), so `adad`
+  keeps `/usr/sbin/nologin` as the plan requires.
 - Not yet active on a live ISO: `40_ban` and `update-grub` (Stage 12), fsck repair to Recovery,
   Recovery after 3 failed boots and the data partition check (Stages 10 and 12).
 

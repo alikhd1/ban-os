@@ -11,6 +11,26 @@ source /live-build/config/ban/build.env
 
 systemctl enable lightdm.service
 
+# Debian's lightdm-autologin PAM file refuses users whose shell is nologin or
+# false, but adad has /usr/sbin/nologin on purpose (step 2.4: no shell even if
+# something in the session opens a terminal). Let only adad skip that check.
+# Debian's file is diverted to .distrib, so a lightdm update does not replace
+# ours; the build stops if Debian's shell rule changes.
+pam=/etc/pam.d/lightdm-autologin
+shell_rule='pam_succeed_if.so shell notin'
+dpkg-divert --local --rename --add "${pam}"
+grep -qF "${shell_rule}" "${pam}.distrib" || {
+  echo "ban: shell rule not found in ${pam}.distrib; check the Debian PAM file" >&2
+  exit 1
+}
+awk -v rule="${shell_rule}" '
+  index($0, rule) > 0 {
+    print "# Ban OS: the POS user adad has /usr/sbin/nologin on purpose (plan step 2.4)."
+    print "auth      [success=1 default=ignore] pam_succeed_if.so quiet user = adad"
+  }
+  { print }
+' "${pam}.distrib" > "${pam}"
+
 plymouth-set-default-theme ban
 update-initramfs -u -k all
 

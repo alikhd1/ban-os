@@ -357,6 +357,8 @@ xserver-command=X -nolisten tcp
 | `maintenance` | `/bin/bash` | `ban-ipc` `sudo` (whitelist) | ترمینال تکنسین، SSH در development |
 | `ban-agent` | nologin | سیستم | اجرای Agent با capabilityهای محدود |
 
+فایل PAM دبیان `lightdm-autologin` کاربرانی با shell از نوع `nologin` را برای autologin رد می‌کند؛ Image این فایل را divert می‌کند و فقط `adad` را از این بررسی معاف می‌کند تا `adad` همان `/usr/sbin/nologin` بماند (اگر چیزی در session ترمینال باز کند، shell به دست نمی‌آید).
+
 ## گام ۲.۵ — مدیریت نشست: `ban-session`
 
 `/opt/ban/kiosk/ban-session` (shell):

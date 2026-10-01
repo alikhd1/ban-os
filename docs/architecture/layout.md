@@ -34,6 +34,10 @@ root for now; the service users (`adad`, `ban-agent`, ...) take them over in Sta
 
 `ban-ipc` is the group that may talk to the Ban sockets in `/run/ban/` (Stage 4).
 
+`adad` keeps `/usr/sbin/nologin` even though Debian's `/etc/pam.d/lightdm-autologin` refuses such
+users: the image diverts that file and exempts only `adad` from the shell check
+(`7040-ban-kiosk.hook.chroot`).
+
 ## `/etc/ban/release`
 
 Written at build time by `image/scripts/build-image.sh`:
