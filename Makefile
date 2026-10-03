@@ -39,7 +39,8 @@ ifneq ($(VNC),)
 VNC_ARGS := -object secret,id=vncpw,format=raw,file=$(VNC_PASSWORD_FILE) -vnc :1,password-secret=vncpw
 endif
 # Port of the build VM forwarded to the guest's SSH (development images):
-# ssh -p 2223 maintenance@127.0.0.1
+# ssh -p 2223 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null maintenance@127.0.0.1
+# (a live guest creates new host keys at every boot, so none is remembered)
 GUEST_SSH_PORT ?= 2223
 # Guest RAM in MiB (plan: 4096); lower it on a small build VM, e.g. VM_MEM=2048.
 VM_MEM ?= 4096
@@ -93,7 +94,7 @@ run-vm: $(DISK) $(OVMF_VARS)
 		fi; \
 		echo "run-vm: VNC on port 5901 of this machine, password: $$(cat "$(VNC_PASSWORD_FILE)")"; \
 	fi
-	@echo "run-vm: guest SSH (development images): ssh -p $(GUEST_SSH_PORT) maintenance@127.0.0.1"
+	@echo "run-vm: guest SSH (development images): ssh -p $(GUEST_SSH_PORT) -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null maintenance@127.0.0.1"
 	qemu-system-x86_64 $(KVM) -m $(VM_MEM) -smp 2 \
 		-drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE) \
 		-drive if=pflash,format=raw,file=$(OVMF_VARS) \

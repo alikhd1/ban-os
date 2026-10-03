@@ -179,8 +179,11 @@ staging and production images have no login user before Stage 2; root is locked 
 on the build VM:
 
 ```bash
-ssh -p 2223 -o StrictHostKeyChecking=no maintenance@127.0.0.1
+ssh -p 2223 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null maintenance@127.0.0.1
 ```
+
+A live guest creates new SSH host keys at every boot, so its key is not stored; otherwise SSH
+refuses the next boot with "REMOTE HOST IDENTIFICATION HAS CHANGED".
 
 ### Without KVM
 
